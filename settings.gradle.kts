@@ -20,4 +20,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Netflix"
-include(":app")
+include(":streming-app")
+include(":cms-app")
