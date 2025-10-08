@@ -15,7 +15,7 @@ import com.mariadb.*;
 import com.mkyong.endpoints.Users;
 
 public class MainApp {
-  public static final String BASE_URI = "http://localhost:8080/";
+  public static final String BASE_URI = "http://0.0.0.0:8080";
 
   public static Server startServer() {
 

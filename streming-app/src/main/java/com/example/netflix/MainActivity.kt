@@ -1,47 +1,49 @@
 package com.example.netflix
-
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.netflix.ui.theme.NetflixTheme
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+
 
 class MainActivity : ComponentActivity() {
+
+    // on below line we are creating
+    // a variable for our video url.
+    var videoUrl = "http://192.168.1.76:80/movie/popeye/1080"
+
+    private lateinit var playerView: PlayerView
+    private lateinit var player: ExoPlayer
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            NetflixTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
-            }
-        }
-    }
-}
+        setContentView(R.layout.activity_main)
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    NetflixTheme {
-        Greeting("Android")
+        playerView = findViewById<PlayerView?>(R.id.playerView)
+
+
+        // Initialize ExoPlayer
+        player = ExoPlayer.Builder(this).build()
+        playerView.setPlayer(player)
+
+
+        // Build the MediaItem
+        val uri = Uri.parse(videoUrl)
+        val mediaItem = MediaItem.fromUri(uri)
+
+
+        // Prepare the player with the media item
+        player.setMediaItem(mediaItem)
+        player.prepare()
+        player.setPlayWhenReady(true) // Start playing when ready
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        player.release()
+    }
+
+
 }

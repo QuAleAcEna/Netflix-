@@ -30,6 +30,15 @@ public class Movies implements endpoint {
     return "Invalid url";
   }
 
+@GET
+@Path("/test")
+@Produces(MediaType.APPLICATION_OCTET_STREAM)
+public Response video() {
+    File file = new File("./res/videos/popeye/1080.mp4");
+    return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM)
+            .build();
+}
+
   @GET
   @Path("/{videoName}/{resolution}")
   @Produces("video/mp4")
@@ -66,8 +75,9 @@ public class Movies implements endpoint {
           inputStream.close();
         };
 
-        return Response.ok(stream)
+        return Response.ok(stream,"video/mp4")
             .status(Response.Status.OK)
+            .header("Accept-Ranges", "bytes")
             .header(HttpHeaders.CONTENT_LENGTH, videoFile.length())
             .build();
       }
@@ -83,7 +93,7 @@ public class Movies implements endpoint {
       raf.seek(from);
       final long len = to - from + 1;
       final MediaStreamer mediaStreamer = new MediaStreamer((int) len, raf);
-      return Response.ok(mediaStreamer)
+      return Response.ok(mediaStreamer,"video/mp4")
           .status(Response.Status.PARTIAL_CONTENT)
           .header("Accept-Ranges", "bytes")
           .header("Content-Range", responseRange)
