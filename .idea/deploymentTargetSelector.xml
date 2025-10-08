@@ -2,10 +2,10 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="app">
+      <SelectionState runConfigName="cms-app">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
-      <SelectionState runConfigName="cms-app">
+      <SelectionState runConfigName="streming-app">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
     </selectionStates>
