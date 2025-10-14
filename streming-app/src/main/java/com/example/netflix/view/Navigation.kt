@@ -5,7 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-
+import android.net.Uri
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
@@ -32,8 +32,9 @@ fun AppNavigation() {
 
         // Player Screen
         composable("player/{url}") { backStackEntry ->
-            val videoUrl = backStackEntry.arguments?.getString("url") ?: ""
-            PlayerScreen(navController, videoUrl)
+            val encodedUrl = backStackEntry.arguments?.getString("url") ?: ""
+            val decodedUrl = Uri.decode(encodedUrl)  // decode safely before using
+            PlayerScreen(navController, decodedUrl)
         }
     }
 }

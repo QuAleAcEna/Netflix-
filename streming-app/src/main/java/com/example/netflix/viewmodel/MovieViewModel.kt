@@ -17,10 +17,36 @@ class MovieViewModel : ViewModel() {
 
     fun fetchMovies() {
         viewModelScope.launch {
-            val response = repository.getMovies()
-            if (response.isSuccessful) {
-                _movies.value = response.body() ?: emptyList()
-            }
+            //val response = repository.getMovies()
+
+            val mockMovies = listOf(
+                Movie(
+                    id = "1",
+                    title = "Big Buck Bunny",
+                    description = "A fun animated short film",
+                    genre = "Animation",
+                    duration = "10m",
+                    thumbnailUrl = "https://peach.blender.org/wp-content/uploads/title_anouncement.jpg",
+                    videoUrl1080p = "https://archive.org/download/PopeyeAliBaba/PopeyeAliBaba.mp4",
+                    videoUrl360p = "https://archive.org/download/PopeyeAliBaba/PopeyeAliBaba_512kb.mp4"
+                ),
+                Movie(
+                    id = "2",
+                    title = "Night of the Living Dead",
+                    description = "Classic horror film",
+                    genre = "Horror",
+                    duration = "95m",
+                    thumbnailUrl = "https://upload.wikimedia.org/wikipedia/commons/9/9d/Night_of_the_Living_Dead_%281968%29_poster.jpg",
+                    videoUrl1080p = "https://archive.org/download/night_of_the_living_dead/night_of_the_living_dead.mp4",
+                    videoUrl360p = "https://archive.org/download/night_of_the_living_dead/night_of_the_living_dead_512kb.mp4"
+                )
+            )
+            _movies.value= mockMovies
+
+            //if (response.isSuccessful) {
+                //_movies.value = response.body() ?: emptyList()
+            //}
+
         }
     }
 }

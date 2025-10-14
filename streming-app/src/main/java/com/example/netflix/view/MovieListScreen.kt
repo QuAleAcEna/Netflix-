@@ -18,6 +18,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.netflix.viewmodel.MovieViewModel
+import androidx.compose.foundation.lazy.items
+
 
 @Composable
 fun MovieListScreen(
