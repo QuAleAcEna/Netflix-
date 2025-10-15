@@ -6,17 +6,13 @@
 
     <groupId>com.mkyong</groupId>
     <artifactId>jersey-jetty-example</artifactId>
-    <packaging>jar</packaging>
     <version>1.0</version>
+    <packaging>jar</packaging>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
         <java.version>11</java.version>
-        <junit.version>5.4.0</junit.version>
-        <jsonassert.version>1.5.0</jsonassert.version>
-        <jersey.version>3.0.2</jersey.version>
+        <jersey.version>3.1.5</jersey.version>
     </properties>
 
     <dependencyManagement>
@@ -32,80 +28,61 @@
     </dependencyManagement>
 
     <dependencies>
-<dependency> 
-<groupId>org.mariadb.jdbc</groupId>
-<artifactId>mariadb-java-client</artifactId>
-<version>3.1.0</version>
-</dependency>
-<dependency>
-    <groupId>com.datastax.cassandra</groupId>
-    <artifactId>cassandra-driver-core</artifactId>
-    <version>3.1.0</version>
-</dependency>
-<dependency>
-    <groupId>com.datastax.cassandra</groupId>
-    <artifactId>cassandra-driver-core</artifactId>
-    <version>3.1.0</version>
-</dependency>
-        <!-- Jetty -->
+        <!-- ✅ Jersey Core + Jetty -->
         <dependency>
             <groupId>org.glassfish.jersey.containers</groupId>
             <artifactId>jersey-container-jetty-http</artifactId>
         </dependency>
 
-        <!-- Jersey DI and core-->
         <dependency>
             <groupId>org.glassfish.jersey.inject</groupId>
             <artifactId>jersey-hk2</artifactId>
         </dependency>
 
-        <!-- Jetty 11 needs Servlet API 5 -->
-        <!-- java.lang.NoClassDefFoundError: jakarta/servlet/ServletInputStream -->
+        <!-- ✅ Multipart upload support -->
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-multipart</artifactId>
+        </dependency>
+
+        <!-- ✅ JSON (optional) -->
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-json-binding</artifactId>
+        </dependency>
+
+        <!-- ✅ Servlet API (Jetty 11 uses Jakarta 5) -->
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
             <version>5.0.0</version>
         </dependency>
 
-        <!-- add jackson to support json -->
-        <dependency>
-            <groupId>org.glassfish.jersey.media</groupId>
-            <artifactId>jersey-media-json-jackson</artifactId>
-        </dependency>
-
-        <!-- Need this to hide warning for jakarta.activation.DataSource -->
+        <!-- ✅ Activation API -->
         <dependency>
             <groupId>jakarta.activation</groupId>
             <artifactId>jakarta.activation-api</artifactId>
             <version>2.0.1</version>
         </dependency>
 
-        <!-- JUnit 5 -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- test json data -->
-        <dependency>
-            <groupId>org.skyscreamer</groupId>
-            <artifactId>jsonassert</artifactId>
-            <version>${jsonassert.version}</version>
-            <scope>test</scope>
-        </dependency>
-<dependency>
-            <groupId>org.glassfish.jersey.media</groupId>
-            <artifactId>jersey-media-json-binding</artifactId>
-            <version>3.1.5</version>
-        </dependency>
-
-        <!-- Logging -->
+        <!-- ✅ Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>2.0.12</version>
+        </dependency>
+
+        <!-- ✅ Your database deps -->
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.datastax.cassandra</groupId>
+            <artifactId>cassandra-driver-core</artifactId>
+            <version>3.1.0</version>
         </dependency>
     </dependencies>
 
@@ -120,13 +97,6 @@
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                 </configuration>
-            </plugin>
-
-            <!-- JUnit 5 need at least 2.22.0 to support -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M5</version>
             </plugin>
 
             <plugin>
@@ -144,7 +114,6 @@
                 </configuration>
             </plugin>
 
-            <!-- copy project dependencies -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -157,7 +126,6 @@
                             <goal>copy-dependencies</goal>
                         </goals>
                         <configuration>
-                            <!-- exclude junit, we need runtime dependency only -->
                             <includeScope>runtime</includeScope>
                             <outputDirectory>${project.build.directory}/lib/</outputDirectory>
                         </configuration>

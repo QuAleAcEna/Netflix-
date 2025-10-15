@@ -2,12 +2,14 @@ package com.mkyong.endpoints;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Date;
 
+import com.mariadb.Mariadb;
 import com.mkyong.MediaStreamer;
 
 import jakarta.ws.rs.GET;
@@ -30,25 +32,37 @@ public class Movies implements endpoint {
     return "Invalid url";
   }
 
-@GET
-@Path("/test")
-@Produces(MediaType.APPLICATION_OCTET_STREAM)
-public Response video() {
+  @GET
+  @Path("/test")
+  @Produces(MediaType.APPLICATION_OCTET_STREAM)
+  public Response video() {
     File file = new File("./res/videos/popeye/1080.mp4");
     return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM)
-            .build();
-}
+        .build();
+  }
 
   @GET
   @Path("/{videoName}/{resolution}")
   @Produces("video/mp4")
   public Response streamVideo(@PathParam("videoName") String videoName, @PathParam("resolution") int resolution,
       @HeaderParam("Range") String range) {
-    if (resolution != 1080 || resolution != 360)
+    if (resolution != 1080 && resolution != 360)
       resolution = 1080;
-    File videoFile = new File(
-        String.format("./res/videos/%s/%s.mp4", videoName, String.valueOf(resolution)));
-    return buildStream(videoFile, range);
+    String[] arg = { videoName };
+    ResultSet result = Mariadb.queryDB("SELECT videoPath FROM MOVIE WHERE name = ?", arg);
+    try {
+      if (result.next() == false)
+        return Response.status(Response.Status.NOT_FOUND).entity("Video not found").type(MediaType.TEXT_PLAIN).build();
+      String videoPath;
+      videoPath = result.getString("videoPath");
+      File videoFile = new File(
+          String.format("%s/%s.mp4", videoPath,
+              Integer.toString(resolution)));
+      return buildStream(videoFile, range);
+    } catch (SQLException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
+    }
   }
 
   private Response buildStream(final File videoFile, final String range) {
@@ -73,9 +87,10 @@ public Response video() {
           }
           output.flush();
           inputStream.close();
+
         };
 
-        return Response.ok(stream,"video/mp4")
+        return Response.ok(stream, "video/mp4")
             .status(Response.Status.OK)
             .header("Accept-Ranges", "bytes")
             .header(HttpHeaders.CONTENT_LENGTH, videoFile.length())
@@ -93,15 +108,15 @@ public Response video() {
       raf.seek(from);
       final long len = to - from + 1;
       final MediaStreamer mediaStreamer = new MediaStreamer((int) len, raf);
-      return Response.ok(mediaStreamer,"video/mp4")
+      return Response.ok(mediaStreamer, "video/mp4")
           .status(Response.Status.PARTIAL_CONTENT)
           .header("Accept-Ranges", "bytes")
           .header("Content-Range", responseRange)
           .header(HttpHeaders.CONTENT_LENGTH, mediaStreamer.getLenth())
           .header(HttpHeaders.LAST_MODIFIED, new Date(videoFile.lastModified()))
           .build();
-    } catch (Exception e) {
-      e.printStackTrace();
+    } catch (IOException e) {
+      // e.printStackTrace();
     }
     return null;
   }

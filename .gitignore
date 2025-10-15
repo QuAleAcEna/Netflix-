@@ -16,3 +16,4 @@ local.properties
 jersey-jetty/target
 jersey-jetty/res/videos
 jersey-jetty/res/thumbnails
+jersey-jetty/temp

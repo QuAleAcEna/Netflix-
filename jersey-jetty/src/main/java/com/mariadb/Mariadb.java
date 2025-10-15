@@ -32,8 +32,19 @@ public class Mariadb {
 
       String sql = "CREATE TABLE IF NOT EXISTS USER "
           + "(id INT AUTO_INCREMENT not NULL, "
-          + " name VARCHAR(255), "
-          + " password VARCHAR(255),"
+          + " name VARCHAR(255) not NULL, "
+          + " password VARCHAR(255) not NULL,"
+          + " PRIMARY KEY ( id ))";
+
+      stmt.executeUpdate(sql);
+      sql = "CREATE TABLE IF NOT EXISTS MOVIE "
+          + "(id INT AUTO_INCREMENT not NULL, "
+          + " name VARCHAR(255) not NULL, "
+          + " description VARCHAR(255),"
+          + " genre INT,"
+          + " year INT,"
+          + " videoPath VARCHAR(255) not NULL,"
+          + " thumbnailPath VARCHAR(255) not NULL,"
           + " PRIMARY KEY ( id ))";
 
       stmt.executeUpdate(sql);

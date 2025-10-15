@@ -1,18 +1,16 @@
 package com.mkyong;
 
+import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.eclipse.jetty.server.Server;
 import org.glassfish.jersey.jetty.JettyHttpContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
-import java.net.URI;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import com.mariadb.*;
-import com.mkyong.endpoints.Users;
+import com.mariadb.Mariadb;
 
 public class MainApp {
   public static final String BASE_URI = "http://0.0.0.0:8080";
@@ -21,7 +19,8 @@ public class MainApp {
 
     // scan packages
     // final ResourceConfig config = new ResourceConfig().packages("com.mkyong");
-    Class<?>[] set = { com.mkyong.endpoints.Users.class, com.mkyong.endpoints.Movies.class };
+    Class<?>[] set = { com.mkyong.endpoints.Users.class, com.mkyong.endpoints.Movies.class,
+        com.mkyong.endpoints.UploadService.class };
     final ResourceConfig config = new ResourceConfig(set);
     final Server server = JettyHttpContainerFactory.createServer(URI.create(BASE_URI), config);
 
