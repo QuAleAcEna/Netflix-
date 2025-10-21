@@ -48,8 +48,8 @@ public class UploadService implements endpoint {
 
     String videoPath = String.format("./res/videos/%s", movieName);
     String thumbnailPath = String.format("./res/thumbnails/%s", movieName);
-    String[] args = { movieName, videoPath, thumbnailPath };
-    Mariadb.insert("INSERT INTO MOVIE(name,videoPath,thumbnailPath) VALUES(?,?,?)", args);
+    String[] args = { movieName, videoPath, thumbnailPath, "aaa", "0", "0" };
+    Mariadb.insert("INSERT INTO MOVIE(name,videoPath,thumbnailPath,description,year,genre) VALUES(?,?,?,?,?,?)", args);
   }
 
   private void processVideo(String uploadedFileLocation, String movieName) {

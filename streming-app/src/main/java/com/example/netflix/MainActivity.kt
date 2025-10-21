@@ -1,8 +1,12 @@
 package com.example.netflix
 import android.annotation.SuppressLint
 import android.app.Instrumentation
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -30,10 +34,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
+        createDownloadChannel()
         setContent {
             AppNavigation()
         }
+
     }
+
+
+
+
 }
    //     setContentView(R.layout.activity_main)
 

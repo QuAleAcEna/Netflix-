@@ -2,12 +2,13 @@ package com.example.netflix.model
 
 
 data class Movie(
-    val id: String = "",
-    val title: String = "",
+    val id: Int = 0,
+    val name: String = "",
     val description: String = "",
-    val genre: String = "",
-    val duration: String = "",
-    val thumbnailUrl: String = "",
-    val videoUrl1080p: String = "",
-    val videoUrl360p: String = ""
+    val genre: Int = 0,
+  //  val duration: String = "",
+    var thumbnailPath: String = "",
+    var videoPath:String = ""
+ //   val videoUrl1080p: String = "",
+   // val videoUrl360p: String = ""
 )

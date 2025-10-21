@@ -7,9 +7,12 @@ import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import com.mariadb.Mariadb;
+import com.mariadb.Movie;
 import com.mkyong.MediaStreamer;
 
 import jakarta.ws.rs.GET;
@@ -27,9 +30,24 @@ public class Movies implements endpoint {
   private static final int BUFFER_SIZE = 1024 * 1024; // 1MB
 
   @GET
-  @Produces(MediaType.TEXT_PLAIN)
-  public String invalidParam() {
-    return "Invalid url";
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getMovies() {
+    List<Movie> list = new ArrayList<>();
+
+    ResultSet result = Mariadb.queryDB("SELECT * FROM MOVIE");
+    try {
+      while (result.next()) {
+        String movieName = result.getString("name");
+        list.add(new Movie(result.getInt("id"), movieName, result.getString("description"),
+            result.getInt("genre"), result.getInt("year"), String.format("movie/%s", movieName),
+            String.format("movie/thumbnails/%s", movieName)));
+      }
+    } catch (SQLException se) {
+      System.out.println("Fetch error");
+      return null;
+    }
+    System.out.println("Fetch success");
+    return Response.ok(list).build();
   }
 
   @GET
@@ -39,6 +57,27 @@ public class Movies implements endpoint {
     File file = new File("./res/videos/popeye/1080.mp4");
     return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM)
         .build();
+  }
+
+  @GET
+  @Path("/thumbnails/{movieName}")
+  @Produces("image/png")
+  public Response getThumbnail(@PathParam("movieName") String movieName) {
+    String[] arg = { movieName };
+    ResultSet result = Mariadb.queryDB("SELECT thumbnailPath FROM MOVIE WHERE name = ?", arg);
+
+    try {
+      if (result.next() == false)
+        return Response.status(Response.Status.NOT_FOUND).entity("Thumbnail not found").type(MediaType.TEXT_PLAIN)
+            .build();
+      String thumbnailPath;
+      thumbnailPath = result.getString("thumbnailPath");
+      File file = new File(String.format("%s/%s.png", thumbnailPath, movieName));
+      return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM).build();
+    } catch (SQLException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
+    }
   }
 
   @GET

@@ -3,26 +3,25 @@ package com.mariadb;
 /**
  * Movies
  */
-public class Movies {
+public class Movie {
 
   private int id;
   private int genre;
   private int year;
   private String name;
   private String description;
-  private String lowResUrl, highResUrl;
-  private String thumbnailUrl;
+  private String videoPath;
+  private String thumbnailPath;
 
-  public Movies(int id, String name, String description, int genre, int year, String lowResUrl, String highResUrl,
-      String thumbnailUrl) {
+  public Movie(int id, String name, String description, int genre, int year, String videoPath,
+      String thumbnailPath) {
     this.id = id;
     this.name = name;
     this.description = description;
     this.genre = genre;
     this.year = year;
-    this.lowResUrl = lowResUrl;
-    this.highResUrl = highResUrl;
-    this.thumbnailUrl = thumbnailUrl;
+    this.videoPath = videoPath;
+    this.thumbnailPath = thumbnailPath;
 
   }
 
@@ -46,28 +45,16 @@ public class Movies {
     this.year = year;
   }
 
-  public String getLowResUrl() {
-    return lowResUrl;
+  public String getVideoPath() {
+    return videoPath;
   }
 
-  public void setLowResUrl(String lowResUrl) {
-    this.lowResUrl = lowResUrl;
-  }
-
-  public String getHighResUrl() {
-    return highResUrl;
-  }
-
-  public void setHighResUrl(String highResUrl) {
-    this.highResUrl = highResUrl;
-  }
-
-  public String getThumbnailUrl() {
-    return thumbnailUrl;
+  public String getThumbnailPath() {
+    return thumbnailPath;
   }
 
   public void setThumbnailUrl(String thumbnailUrl) {
-    this.thumbnailUrl = thumbnailUrl;
+    this.thumbnailPath = thumbnailUrl;
   }
 
   public void setName(String name) {

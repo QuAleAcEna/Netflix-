@@ -6,6 +6,6 @@ import retrofit2.http.GET
 
 interface ApiService {
 
-    @GET("movies")
+    @GET("movie")
     suspend fun getMovies(): Response<List<Movie>>
 }

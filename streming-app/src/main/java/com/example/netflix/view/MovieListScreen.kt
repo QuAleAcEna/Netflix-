@@ -1,6 +1,8 @@
 package com.example.netflix.view
 
+
 import android.net.Uri
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,7 +20,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.netflix.viewmodel.MovieViewModel
-import androidx.compose.foundation.lazy.items
+
 
 
 @Composable
@@ -54,13 +56,14 @@ fun MovieListScreen(
                         .fillMaxWidth()
                         .clickable {
                             // Navigate to player screen with encoded video URL
-                            navController.navigate("player/${Uri.encode(movie.videoUrl1080p)}")
+                            navController.navigate("player/${Uri.encode(movie.videoPath+"/1080")}")
+
                         }
                         .padding(vertical = 8.dp)
                 ) {
                     Image(
-                        painter = rememberAsyncImagePainter(model = movie.thumbnailUrl),
-                        contentDescription = movie.title,
+                        painter = rememberAsyncImagePainter(model = movie.thumbnailPath),
+                        contentDescription = movie.name,
                         modifier = Modifier
                             .size(120.dp)
                             .aspectRatio(16 / 9f),
@@ -72,11 +75,15 @@ fun MovieListScreen(
                         modifier = Modifier.align(Alignment.CenterVertically)
                     ) {
                         Text(
-                            text = movie.title,
+                            text = movie.name,
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            text = movie.genre,
+                            text = movie.genre.toString(),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = movie.description.toString(),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
