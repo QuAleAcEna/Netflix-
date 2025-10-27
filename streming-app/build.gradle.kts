@@ -51,6 +51,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // Define the media3 version once
+
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
         // Core ExoPlayer functionality
         implementation("androidx.media3:media3-exoplayer:$media3Version")
@@ -103,9 +104,6 @@ dependencies {
 
     implementation(libs.coil.compose)
 
-    implementation("androidx.media3:media3-exoplayer:1.8.0")
-    implementation("androidx.media3:media3-ui:1.8.0")
-
-
+    implementation("androidx.media3:media3-datasource:1.3.1")
 
 }
