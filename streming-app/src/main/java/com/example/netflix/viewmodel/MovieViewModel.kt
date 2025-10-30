@@ -3,7 +3,9 @@ package com.example.netflix.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.netflix.model.Movie
+import com.example.netflix.network.BASE_URL
 import com.example.netflix.repository.MovieRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,18 +17,24 @@ class MovieViewModel : ViewModel() {
     private val _movies = MutableStateFlow<List<Movie>>(emptyList())
     val movies: StateFlow<List<Movie>> = _movies
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing
+
     fun fetchMovies() {
         viewModelScope.launch {
+            _isRefreshing.value = true
             val response = repository.getMovies()
             if (response.isSuccessful) {
                 _movies.value = response.body() ?: emptyList()
                 for(movie in _movies.value){
-                    movie.videoPath = repository.BASE_URL + movie.videoPath;
-                    movie.thumbnailPath= repository.BASE_URL + movie.thumbnailPath  ;
+                    movie.videoPath = BASE_URL + movie.videoPath;
+                    movie.thumbnailPath= BASE_URL + movie.thumbnailPath  ;
                 }
             }
-
-//            val mockMovies = listOf(
+            _isRefreshing.value = false
+        }
+    }
+    //   val mockMovies = listOf(
 //                Movie(
 //                    id = "1",
 //                    title = "Big Buck Bunny",
@@ -48,10 +56,6 @@ class MovieViewModel : ViewModel() {
 //                    videoUrl360p = "https://archive.org/download/night_of_the_living_dead/night_of_the_living_dead_512kb.mp4"
 //                )
 //            )
-           // _movies.value= mockMovies
+    // _movies.value= mockMovies
 
-
-
-        }
-    }
 }

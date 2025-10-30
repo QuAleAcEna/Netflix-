@@ -1,0 +1,4 @@
+instalar mariadb e criar uma base de dados chamada db
+correr:
+mvn clean package
+java -jar .\target\jersey-jetty.jar
