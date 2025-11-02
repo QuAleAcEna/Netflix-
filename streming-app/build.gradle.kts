@@ -46,6 +46,8 @@ kotlin {
 val media3Version = "1.8.0" // Always check for the latest stable version!
 
 dependencies {
+    implementation("androidx.compose.material:material-icons-extended:1.6.7")
+
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

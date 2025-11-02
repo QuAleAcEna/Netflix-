@@ -1,46 +1,24 @@
 package com.example.netflix.view
 
-import android.app.DownloadManager
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
+import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import android.net.Uri
-import android.os.Environment
-import android.widget.Toast
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat.getSystemService
-import androidx.core.net.toUri
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
-import java.net.URL
-
-private suspend fun downloadVideo(context:Context, videoUrl: String, fileName: String = "video.mp4") {
-    Toast.makeText(context, "Download started", Toast.LENGTH_SHORT).show()
-
-    withContext(Dispatchers.IO) {
-        val movieDir = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "MyVideos")
-        if (!movieDir.exists()) movieDir.mkdirs()
-        val file = File(movieDir, fileName)
-
-        URL(videoUrl).openStream().use { input ->
-            FileOutputStream(file).use { output ->
-                input.copyTo(output)
-            }
-        }
-    }
-    Toast.makeText(context, "Download completed", Toast.LENGTH_SHORT).show()
-
-}
+import com.example.netflix.util.VideoDownloader
 
 @Composable
 fun AppNavigation() {
     val context = LocalContext.current
     val navController = rememberNavController()
+    val videoDownloader = VideoDownloader(context)
 
     NavHost(
         navController = navController,
@@ -63,13 +41,42 @@ fun AppNavigation() {
         }
 
         // Player Screen
-        composable("player/{url}") { backStackEntry ->
+        composable("player/{url}/{title}") { backStackEntry ->
             val encodedUrl = backStackEntry.arguments?.getString("url") ?: ""
-            val decodedUrl = Uri.decode(encodedUrl)  // decode safely before using
+            val title = backStackEntry.arguments?.getString("title") ?: ""
+            val decodedUrl = Uri.decode(encodedUrl)
+            val decodedTitle = Uri.decode(title)
+
+            // Lock orientation to landscape for the player
+            val activity = context.findActivity()
+            if (activity != null) {
+                DisposableEffect(Unit) {
+                    val originalOrientation = activity.requestedOrientation
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    onDispose {
+                        // restore original orientation
+                        activity.requestedOrientation = originalOrientation
+                    }
+                }
+            }
+
             PlayerScreen(navController, decodedUrl)
-            LaunchedEffect(Unit){
-                downloadVideo(context,decodedUrl, "a.mp4")
+
+            // Only download if the URL is a remote one
+            if (decodedUrl.startsWith("http")) {
+                LaunchedEffect(decodedUrl) {
+                    videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                }
             }
         }
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    return null
 }
