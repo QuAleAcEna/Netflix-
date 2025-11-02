@@ -202,6 +202,7 @@ fun PullToRefresh(
 @Composable
 fun MovieListScreen(
     navController: NavController,
+    profileName: String? = null,
     viewModel: MovieViewModel = viewModel()
 ) {
     val movies by viewModel.movies.collectAsState()
@@ -307,31 +308,50 @@ fun MovieListScreen(
             }
 
             PullToRefresh(isRefreshing = isRefreshing, onRefresh = { viewModel.fetchMovies() }) {
-                if (filteredMovies.isEmpty() && !isRefreshing) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (movies.isEmpty()) {
-                            CircularProgressIndicator()
-                        } else {
-                            Text("No movies found", color = Color.White)
-                        }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                ) {
+                    if (!profileName.isNullOrBlank()) {
+                        Text(
+                            text = "Welcome, ${profileName.trim()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
                     }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        modifier = Modifier.fillMaxSize().padding(padding),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(filteredMovies) { movie ->
-                            MovieCard(
-                                movie = movie,
-                                onClick = { selectedMovie = movie },
-                                onLongClick = { expandedMovie = movie }
-                            )
+
+                    if (filteredMovies.isEmpty() && !isRefreshing) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = true),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (movies.isEmpty()) {
+                                CircularProgressIndicator()
+                            } else {
+                                Text("No movies found", color = Color.White)
+                            }
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = true),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(filteredMovies) { movie ->
+                                MovieCard(
+                                    movie = movie,
+                                    onClick = { selectedMovie = movie },
+                                    onLongClick = { expandedMovie = movie }
+                                )
+                            }
                         }
                     }
                 }

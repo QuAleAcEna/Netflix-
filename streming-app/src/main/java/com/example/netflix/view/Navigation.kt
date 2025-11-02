@@ -13,7 +13,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.netflix.util.VideoDownloader
-
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 @Composable
 fun AppNavigation() {
     val context = LocalContext.current
@@ -35,9 +36,28 @@ fun AppNavigation() {
             SignInScreen(navController)
         }
 
+        // Profile Selection Screen
+        composable("profiles") {
+            ProfileSelectionScreen(navController)
+        }
+
         // Movie List Screen (Home)
-        composable("home") {
-            MovieListScreen(navController)
+        composable(
+            route = "home/{profileName}",
+            arguments = listOf(
+                navArgument("profileName") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val encodedProfileName = backStackEntry.arguments?.getString("profileName") ?: ""
+            val profileName = if (encodedProfileName.isNotEmpty()) {
+                Uri.decode(encodedProfileName)
+            } else {
+                null
+            }
+            MovieListScreen(navController, profileName = profileName)
         }
 
         // Player Screen

@@ -44,7 +44,7 @@ fun SignInScreen(navController: NavController) {
 
             Button(onClick = {
                 // TODO: validar credenciais (pode ser via API)
-                navController.navigate("home") {
+                navController.navigate("profiles") {
                     popUpTo("signin") { inclusive = true }
                 }
             }) {
