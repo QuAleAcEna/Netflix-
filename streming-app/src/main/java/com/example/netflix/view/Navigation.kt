@@ -37,27 +37,62 @@ fun AppNavigation() {
         }
 
         // Profile Selection Screen
-        composable("profiles") {
-            ProfileSelectionScreen(navController)
+        composable(
+            route = "profiles/{userId}/{userName}",
+            arguments = listOf(
+                navArgument("userId") {
+                    type = NavType.IntType
+                },
+                navArgument("userName") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: -1
+            val encodedUserName = backStackEntry.arguments?.getString("userName") ?: ""
+            val userName = if (encodedUserName.isNotEmpty()) Uri.decode(encodedUserName) else ""
+            ProfileSelectionScreen(navController, userId = userId, accountName = userName)
         }
 
         // Movie List Screen (Home)
         composable(
-            route = "home/{profileName}",
+            route = "home/{userId}/{accountName}/{profileId}/{profileName}",
             arguments = listOf(
+                navArgument("userId") {
+                    type = NavType.IntType
+                },
+                navArgument("accountName") {
+                    type = NavType.StringType
+                    defaultValue = "_"
+                },
+                navArgument("profileId") {
+                    type = NavType.IntType
+                },
                 navArgument("profileName") {
                     type = NavType.StringType
                     defaultValue = ""
                 }
             )
         ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: -1
+            val encodedAccountName = backStackEntry.arguments?.getString("accountName") ?: "_"
+            val accountNameDecoded = Uri.decode(encodedAccountName)
+            val accountName = accountNameDecoded.takeIf { it != "_" } ?: ""
+            val profileId = backStackEntry.arguments?.getInt("profileId") ?: -1
             val encodedProfileName = backStackEntry.arguments?.getString("profileName") ?: ""
             val profileName = if (encodedProfileName.isNotEmpty()) {
                 Uri.decode(encodedProfileName)
             } else {
                 null
             }
-            MovieListScreen(navController, profileName = profileName)
+            MovieListScreen(
+                navController,
+                userId = userId,
+                accountName = accountName,
+                profileId = profileId,
+                profileName = profileName
+            )
         }
 
         // Player Screen
