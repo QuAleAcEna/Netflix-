@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,11 +16,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.netflix.util.VideoDownloader
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+
 @Composable
 fun AppNavigation() {
     val context = LocalContext.current
     val navController = rememberNavController()
-    val videoDownloader = VideoDownloader(context)
+    val videoDownloader = remember(context) { VideoDownloader(context) }
 
     NavHost(
         navController = navController,
@@ -115,10 +117,13 @@ fun AppNavigation() {
                 }
             }
 
-            PlayerScreen(navController, decodedUrl)
+            val localUri = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+            val videoUri = localUri?.toString() ?: decodedUrl
 
-            // Only download if the URL is a remote one
-            if (decodedUrl.startsWith("http")) {
+            PlayerScreen(navController, videoUri)
+
+            // Only download if the URL is a remote one and not already downloaded
+            if (decodedUrl.startsWith("http") && localUri == null) {
                 LaunchedEffect(decodedUrl) {
                     videoDownloader.downloadVideo(decodedUrl, decodedTitle)
                 }

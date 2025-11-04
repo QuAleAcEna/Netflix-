@@ -389,7 +389,7 @@ private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
             Text(
                 text = profile.name,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 textAlign = TextAlign.Center
             )
             if (profile.kids) {
@@ -397,9 +397,11 @@ private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
                 Text(
                     text = "Perfil infantil",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = Color.White,
                     textAlign = TextAlign.Center
                 )
+            } else {
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -442,6 +444,7 @@ private fun AddProfileCard(onClick: () -> Unit) {
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

@@ -22,6 +22,7 @@ public class Mariadb {
 
       // STEP 3: Open a connection
       System.out.println("Connecting to a selected database...");
+
       conn = DriverManager.getConnection(
           "jdbc:mariadb://localhost:3306/db", "root", "root");
       System.out.println("Connected database successfully...");
