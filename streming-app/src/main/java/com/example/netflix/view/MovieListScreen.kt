@@ -35,6 +35,9 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -202,6 +205,9 @@ fun PullToRefresh(
 @Composable
 fun MovieListScreen(
     navController: NavController,
+    userId: Int,
+    accountName: String,
+    profileId: Int,
     profileName: String? = null,
     viewModel: MovieViewModel = viewModel()
 ) {
@@ -211,6 +217,7 @@ fun MovieListScreen(
     var selectedMovie by remember { mutableStateOf<Movie?>(null) }
     var expandedMovie by remember { mutableStateOf<Movie?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var accountMenuExpanded by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     val onQualitySelected = { movie: Movie, quality: String ->
@@ -229,7 +236,7 @@ fun MovieListScreen(
         selectedMovie = null // Close the dialog
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(profileId) {
         viewModel.fetchMovies()
     }
 
@@ -288,6 +295,42 @@ fun MovieListScreen(
                             text = searchQuery,
                             onTextChange = { searchQuery = it },
                         )
+                    },
+                    actions = {
+                        IconButton(onClick = { accountMenuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "Opções de conta"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = accountMenuExpanded,
+                            onDismissRequest = { accountMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Trocar de perfil") },
+                                onClick = {
+                                    accountMenuExpanded = false
+                                    val navigatedBack = navController.popBackStack()
+                                    if (!navigatedBack) {
+                                        val encodedAccount = Uri.encode(accountName.ifBlank { "_" })
+                                        navController.navigate("profiles/$userId/$encodedAccount")
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Terminar sessão") },
+                                onClick = {
+                                    accountMenuExpanded = false
+                                    navController.navigate("signin") {
+                                        popUpTo("splash") {
+                                            inclusive = true
+                                        }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,

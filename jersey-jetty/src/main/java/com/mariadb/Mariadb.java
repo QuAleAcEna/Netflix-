@@ -22,6 +22,7 @@ public class Mariadb {
 
       // STEP 3: Open a connection
       System.out.println("Connecting to a selected database...");
+
       conn = DriverManager.getConnection(
           "jdbc:mariadb://localhost:3306/db", "root", "root");
       System.out.println("Connected database successfully...");
@@ -46,6 +47,17 @@ public class Mariadb {
           + " videoPath VARCHAR(255) not NULL,"
           + " thumbnailPath VARCHAR(255) not NULL,"
           + " PRIMARY KEY ( id ))";
+
+      stmt.executeUpdate(sql);
+      sql = "CREATE TABLE IF NOT EXISTS PROFILE "
+          + "(id INT AUTO_INCREMENT not NULL, "
+          + " userId INT not NULL, "
+          + " name VARCHAR(255) not NULL, "
+          + " avatarColor VARCHAR(32) not NULL, "
+          + " kids BOOLEAN DEFAULT FALSE, "
+          + " PRIMARY KEY ( id ), "
+          + " CONSTRAINT fk_profile_user FOREIGN KEY (userId) REFERENCES USER(id) ON DELETE CASCADE, "
+          + " CONSTRAINT unique_user_profile UNIQUE (userId, name))";
 
       stmt.executeUpdate(sql);
       System.out.println("Created table in given database...");
@@ -131,6 +143,31 @@ public class Mariadb {
     }
 
     return true;
+  }
+
+  public static Integer insertAndReturnId(String stm, String[] args) {
+    try {
+      PreparedStatement pstm = conn.prepareStatement(stm, Statement.RETURN_GENERATED_KEYS);
+      for (int i = 0; i < args.length; i++) {
+        pstm.setString(i + 1, args[i]);
+      }
+      int affectedRows = pstm.executeUpdate();
+      if (affectedRows == 0) {
+        return null;
+      }
+      ResultSet keys = pstm.getGeneratedKeys();
+      if (keys.next()) {
+        return keys.getInt(1);
+      }
+    } catch (SQLException se) {
+      se.printStackTrace();
+      Mariadb.exit();
+      return null;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+    return null;
   }
 
 };

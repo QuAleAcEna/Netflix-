@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -15,11 +16,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.netflix.util.VideoDownloader
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+
 @Composable
 fun AppNavigation() {
     val context = LocalContext.current
     val navController = rememberNavController()
-    val videoDownloader = VideoDownloader(context)
+    val videoDownloader = remember(context) { VideoDownloader(context) }
 
     NavHost(
         navController = navController,
@@ -37,27 +39,62 @@ fun AppNavigation() {
         }
 
         // Profile Selection Screen
-        composable("profiles") {
-            ProfileSelectionScreen(navController)
+        composable(
+            route = "profiles/{userId}/{userName}",
+            arguments = listOf(
+                navArgument("userId") {
+                    type = NavType.IntType
+                },
+                navArgument("userName") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: -1
+            val encodedUserName = backStackEntry.arguments?.getString("userName") ?: ""
+            val userName = if (encodedUserName.isNotEmpty()) Uri.decode(encodedUserName) else ""
+            ProfileSelectionScreen(navController, userId = userId, accountName = userName)
         }
 
         // Movie List Screen (Home)
         composable(
-            route = "home/{profileName}",
+            route = "home/{userId}/{accountName}/{profileId}/{profileName}",
             arguments = listOf(
+                navArgument("userId") {
+                    type = NavType.IntType
+                },
+                navArgument("accountName") {
+                    type = NavType.StringType
+                    defaultValue = "_"
+                },
+                navArgument("profileId") {
+                    type = NavType.IntType
+                },
                 navArgument("profileName") {
                     type = NavType.StringType
                     defaultValue = ""
                 }
             )
         ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: -1
+            val encodedAccountName = backStackEntry.arguments?.getString("accountName") ?: "_"
+            val accountNameDecoded = Uri.decode(encodedAccountName)
+            val accountName = accountNameDecoded.takeIf { it != "_" } ?: ""
+            val profileId = backStackEntry.arguments?.getInt("profileId") ?: -1
             val encodedProfileName = backStackEntry.arguments?.getString("profileName") ?: ""
             val profileName = if (encodedProfileName.isNotEmpty()) {
                 Uri.decode(encodedProfileName)
             } else {
                 null
             }
-            MovieListScreen(navController, profileName = profileName)
+            MovieListScreen(
+                navController,
+                userId = userId,
+                accountName = accountName,
+                profileId = profileId,
+                profileName = profileName
+            )
         }
 
         // Player Screen
@@ -80,10 +117,13 @@ fun AppNavigation() {
                 }
             }
 
-            PlayerScreen(navController, decodedUrl)
+            val localUri = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+            val videoUri = localUri?.toString() ?: decodedUrl
 
-            // Only download if the URL is a remote one
-            if (decodedUrl.startsWith("http")) {
+            PlayerScreen(navController, videoUri)
+
+            // Only download if the URL is a remote one and not already downloaded
+            if (decodedUrl.startsWith("http") && localUri == null) {
                 LaunchedEffect(decodedUrl) {
                     videoDownloader.downloadVideo(decodedUrl, decodedTitle)
                 }

@@ -26,17 +26,29 @@ public class Users implements endpoint {
   @Produces(MediaType.APPLICATION_JSON)
   public User newUser(@PathParam("name") String name, @PathParam("password") String password) {
 
-    User obj = new User(0, name, password);
-    String[] arg = { name };
+    String sanitizedName = name.trim();
+    String[] arg = { sanitizedName };
 
     ResultSet result = Mariadb.queryDB("SELECT * FROM USER WHERE name = ?", arg);
     try {
 
       if (result != null && result.next() == false) {
 
-        String[] args = { name, password };
-        Mariadb.insert("INSERT INTO USER(name,password) VALUES(?,?)", args);
-        return obj;
+        String[] args = { sanitizedName, password };
+        Integer newUserId = Mariadb.insertAndReturnId("INSERT INTO USER(name,password) VALUES(?,?)", args);
+        if (newUserId == null) {
+          return null;
+        }
+
+        String[] profileArgs = { Integer.toString(newUserId), sanitizedName, "#E50914", "0" };
+        Mariadb.insert("INSERT INTO PROFILE(userId,name,avatarColor,kids) VALUES(?,?,?,?)", profileArgs);
+
+        String[] fetchArgs = { Integer.toString(newUserId) };
+        ResultSet created = Mariadb.queryDB("SELECT * FROM USER WHERE id = ?", fetchArgs);
+        if (created != null && created.next()) {
+          return new User(created.getInt("id"), created.getString("name"), created.getString("password"));
+        }
+        return new User(newUserId, sanitizedName, password);
       }
     } catch (SQLException se) {
       se.printStackTrace();
@@ -52,12 +64,12 @@ public class Users implements endpoint {
   @Produces(MediaType.APPLICATION_JSON)
   public User connectUser(@PathParam("name") String name, @PathParam("password") String password) {
 
-    String[] args = { name, password };
+    String sanitizedName = name.trim();
+    String[] args = { sanitizedName, password };
     ResultSet result = Mariadb.queryDB("SELECT * FROM USER WHERE name = ? AND password = ?", args);
     try {
 
-      if (result != null) {
-        result.next();
+      if (result != null && result.next()) {
         return new User(result.getInt("id"), result.getString("name"), result.getString("password"));
       }
     } catch (SQLException se) {

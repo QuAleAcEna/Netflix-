@@ -1,5 +1,6 @@
 package com.example.netflix.view
 
+import android.graphics.Color as AndroidColor
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,69 +27,113 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import androidx.compose.ui.res.painterResource
 import com.example.netflix.R
+import com.example.netflix.model.CreateProfileRequest
+import com.example.netflix.model.Profile
+import com.example.netflix.network.RetrofitInstance
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val MAX_PROFILES = 5
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ProfileSelectionScreen(navController: NavController) {
-    val profiles = remember {
-        mutableStateListOf("Alice", "Bob", "Kids")
-    }
+fun ProfileSelectionScreen(
+    navController: NavController,
+    userId: Int,
+    accountName: String
+) {
+    val profiles = remember { mutableStateListOf<Profile>() }
     var showAddDialog by remember { mutableStateOf(false) }
     var newProfileName by remember { mutableStateOf("") }
+    var isKidsProfile by remember { mutableStateOf(false) }
     var nameError by remember { mutableStateOf<String?>(null) }
+    var isLoadingProfiles by remember { mutableStateOf(false) }
+    var isSavingProfile by remember { mutableStateOf(false) }
 
-    val avatarColors = listOf(
-        Color(0xFFE50914),
-        Color(0xFFB81D24),
-        Color(0xFF221F1F),
-        Color(0xFF5A0F27),
-        Color(0xFF0071EB)
-    )
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    val avatarPalette = listOf("#E50914", "#B81D24", "#221F1F", "#5A0F27", "#0071EB")
+
+    LaunchedEffect(userId) {
+        if (userId <= 0) {
+            snackbarHostState.showSnackbar("Não foi possível identificar o utilizador. Volte a iniciar sessão.")
+            navController.navigate("signin") {
+                popUpTo("signin") { inclusive = true }
+            }
+            return@LaunchedEffect
+        }
+
+        isLoadingProfiles = true
+        try {
+            val response = withContext(Dispatchers.IO) {
+                RetrofitInstance.api.getProfiles(userId)
+            }
+            if (response.isSuccessful) {
+                profiles.clear()
+                response.body()?.let { profiles.addAll(it) }
+            } else {
+                snackbarHostState.showSnackbar("Erro ao carregar perfis (${response.code()}).")
+            }
+        } catch (e: Exception) {
+            snackbarHostState.showSnackbar("Erro de ligação ao carregar perfis.")
+        } finally {
+            isLoadingProfiles = false
+        }
+    }
 
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = {
-                showAddDialog = false
-                newProfileName = ""
-                nameError = null
+                if (!isSavingProfile) {
+                    showAddDialog = false
+                    newProfileName = ""
+                    isKidsProfile = false
+                    nameError = null
+                }
             },
-            title = { Text(text = "New profile") },
+            title = { Text(text = "Novo perfil") },
             text = {
                 Column {
                     OutlinedTextField(
                         value = newProfileName,
                         onValueChange = {
                             newProfileName = it
-                            if (nameError != null) {
-                                nameError = null
-                            }
+                            if (nameError != null) nameError = null
                         },
-                        label = { Text("Name") },
+                        label = { Text("Nome") },
                         singleLine = true,
                         isError = nameError != null
                     )
@@ -99,37 +145,85 @@ fun ProfileSelectionScreen(navController: NavController) {
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Perfil infantil")
+                        Spacer(modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = isKidsProfile,
+                            onCheckedChange = { isKidsProfile = it }
+                        )
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
+                    enabled = !isSavingProfile,
                     onClick = {
                         val trimmedName = newProfileName.trim()
                         when {
-                            trimmedName.isEmpty() -> nameError = "Name cannot be empty"
-                            profiles.any { it.equals(trimmedName, ignoreCase = true) } ->
-                                nameError = "Profile already exists"
+                            trimmedName.isEmpty() ->
+                                nameError = "O nome não pode estar vazio"
+                            profiles.any { it.name.equals(trimmedName, ignoreCase = true) } ->
+                                nameError = "Já existe um perfil com esse nome"
                             else -> {
-                                profiles.add(trimmedName)
-                                showAddDialog = false
-                                newProfileName = ""
-                                nameError = null
+                                coroutineScope.launch {
+                                    isSavingProfile = true
+                                    try {
+                                        val colorHex =
+                                            avatarPalette[profiles.size % avatarPalette.size]
+                                        val response = withContext(Dispatchers.IO) {
+                                            RetrofitInstance.api.createProfile(
+                                                CreateProfileRequest(
+                                                    userId = userId,
+                                                    name = trimmedName,
+                                                    avatarColor = colorHex,
+                                                    kids = isKidsProfile
+                                                )
+                                            )
+                                        }
+                                        if (response.isSuccessful) {
+                                            response.body()?.let { created ->
+                                                profiles.add(created)
+                                                snackbarHostState.showSnackbar("Perfil criado.")
+                                            }
+                                            showAddDialog = false
+                                            newProfileName = ""
+                                            isKidsProfile = false
+                                            nameError = null
+                                        } else if (response.code() == 409) {
+                                            nameError = "Esse nome já está a ser usado."
+                                        } else {
+                                            snackbarHostState.showSnackbar("Não foi possível criar o perfil (${response.code()}).")
+                                        }
+                                    } catch (e: Exception) {
+                                        snackbarHostState.showSnackbar("Erro ao criar o perfil. Tente novamente.")
+                                    } finally {
+                                        isSavingProfile = false
+                                    }
+                                }
                             }
                         }
                     }
                 ) {
-                    Text("Save")
+                    Text(if (isSavingProfile) "A guardar..." else "Guardar")
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
-                        showAddDialog = false
-                        newProfileName = ""
-                        nameError = null
+                        if (!isSavingProfile) {
+                            showAddDialog = false
+                            newProfileName = ""
+                            isKidsProfile = false
+                            nameError = null
+                        }
                     }
                 ) {
-                    Text("Cancel")
+                    Text("Cancelar")
                 }
             }
         )
@@ -145,21 +239,33 @@ fun ProfileSelectionScreen(navController: NavController) {
 
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(text = "Who's watching?", fontWeight = FontWeight.SemiBold) }
+                    title = {
+                        Text(
+                            text = if (accountName.isNotBlank()) {
+                                "Quem está a assistir, $accountName?"
+                            } else {
+                                "Quem está a assistir?"
+                            },
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "Add profile",
-                        tint = Color.White
-                    )
+                if (profiles.size < MAX_PROFILES) {
+                    FloatingActionButton(
+                        onClick = { showAddDialog = true },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Adicionar perfil",
+                            tint = Color.White
+                        )
+                    }
                 }
             }
         ) { paddingValues ->
@@ -171,7 +277,7 @@ fun ProfileSelectionScreen(navController: NavController) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Choose a profile to continue",
+                    text = "Escolha um perfil para continuar",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White,
                     textAlign = TextAlign.Center
@@ -179,29 +285,60 @@ fun ProfileSelectionScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp)
-                ) {
-                    itemsIndexed(profiles, key = { _, name -> name }) { index, name ->
-                        val color = avatarColors[index % avatarColors.size]
-                        ProfileCard(
-                            name = name,
-                            color = color,
-                            onClick = {
-                                val encoded = Uri.encode(name)
-                                navController.navigate("home/$encoded") {
-                                    popUpTo("profiles") { inclusive = true }
-                                }
-                            }
-                        )
+                when {
+                    isLoadingProfiles -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
 
-                    item {
-                        AddProfileCard(onClick = { showAddDialog = true })
+                    profiles.isEmpty() -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Ainda não existem perfis. Crie um para começar.",
+                                color = Color.White,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
+                    else -> {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                            contentPadding = PaddingValues(bottom = 24.dp)
+                        ) {
+                            items(profiles, key = { it.id }) { profile ->
+                                ProfileCard(
+                                    profile = profile,
+                                    onClick = {
+                                        val encodedName = Uri.encode(profile.name)
+                                        val accountSegment = Uri.encode(accountName.ifBlank { "_" })
+                                        navController.navigate(
+                                            "home/${profile.userId}/$accountSegment/${profile.id}/$encodedName"
+                                        )
+                                    }
+                                )
+                            }
+
+                            if (profiles.size < MAX_PROFILES) {
+                                item {
+                                    AddProfileCard(onClick = { showAddDialog = true })
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -210,7 +347,15 @@ fun ProfileSelectionScreen(navController: NavController) {
 }
 
 @Composable
-private fun ProfileCard(name: String, color: Color, onClick: () -> Unit) {
+private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
+    val color = remember(profile.avatarColor) {
+        try {
+            Color(AndroidColor.parseColor(profile.avatarColor))
+        } catch (_: IllegalArgumentException) {
+            Color(0xFFE50914)
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -234,7 +379,7 @@ private fun ProfileCard(name: String, color: Color, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = name.first().uppercase(),
+                    text = profile.name.first().uppercase(),
                     style = MaterialTheme.typography.headlineSmall,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
@@ -242,11 +387,22 @@ private fun ProfileCard(name: String, color: Color, onClick: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = name,
+                text = profile.name,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 textAlign = TextAlign.Center
             )
+            if (profile.kids) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Perfil infantil",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 }
@@ -277,17 +433,18 @@ private fun AddProfileCard(onClick: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = "Add profile",
+                    contentDescription = "Adicionar perfil",
                     tint = Color.White
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Add profile",
+                text = "Adicionar perfil",
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
