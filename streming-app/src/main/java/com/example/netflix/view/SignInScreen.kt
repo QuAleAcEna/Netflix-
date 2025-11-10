@@ -37,9 +37,10 @@ fun SignInScreen(navController: NavController) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showCreateAccountDialog by remember { mutableStateOf(false) }
-   var newUsername by remember { mutableStateOf("") }
-   var newPassword by remember { mutableStateOf("") }
-   var isCreatingAccount by remember { mutableStateOf(false) }
+    var showAccountCreatedDialog by remember { mutableStateOf(false) }
+    var newUsername by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var isCreatingAccount by remember { mutableStateOf(false) }
     var isSigningIn by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -86,8 +87,8 @@ fun SignInScreen(navController: NavController) {
                                 if (response.isSuccessful && response.body() != null) {
                                     username = trimmedUsername
                                     password = newPassword
-                                    snackbarHostState.showSnackbar("Conta criada com sucesso. Já pode iniciar sessão!")
                                     showCreateAccountDialog = false
+                                    showAccountCreatedDialog = true
                                     newUsername = ""
                                     newPassword = ""
                                 } else {
@@ -116,6 +117,19 @@ fun SignInScreen(navController: NavController) {
                     }
                 ) {
                     Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showAccountCreatedDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccountCreatedDialog = false },
+            title = { Text("Conta criada") },
+            text = { Text("Conta criada com sucesso. Já pode iniciar sessão!") },
+            confirmButton = {
+                TextButton(onClick = { showAccountCreatedDialog = false }) {
+                    Text("OK")
                 }
             }
         )

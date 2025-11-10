@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,6 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -251,6 +253,23 @@ fun ProfileSelectionScreen(
                             },
                             fontWeight = FontWeight.SemiBold
                         )
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                navController.navigate("signin") {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        inclusive = true
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Logout,
+                                contentDescription = "Terminar sessão",
+                                tint = Color.White
+                            )
+                        }
                     }
                 )
             },
@@ -397,11 +416,9 @@ private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
                 Text(
                     text = "Perfil infantil",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
                 )
-            } else {
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
