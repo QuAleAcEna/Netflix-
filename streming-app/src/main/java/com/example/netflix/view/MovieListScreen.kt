@@ -232,7 +232,7 @@ fun MovieListScreen(
 
         val encodedUrl = Uri.encode(videoUrl)
         val encodedTitle = Uri.encode(fileName)
-        navController.navigate("player/$encodedUrl/$encodedTitle")
+        navController.navigate("player/$profileId/${movie.id}/$encodedUrl/$encodedTitle")
         selectedMovie = null // Close the dialog
     }
 

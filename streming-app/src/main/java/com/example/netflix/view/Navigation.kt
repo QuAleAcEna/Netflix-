@@ -98,9 +98,19 @@ fun AppNavigation() {
         }
 
         // Player Screen
-        composable("player/{url}/{title}") { backStackEntry ->
+        composable(
+            route = "player/{profileId}/{movieId}/{url}/{title}",
+            arguments = listOf(
+                navArgument("profileId") { type = NavType.IntType },
+                navArgument("movieId") { type = NavType.IntType },
+                navArgument("url") { type = NavType.StringType },
+                navArgument("title") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
             val encodedUrl = backStackEntry.arguments?.getString("url") ?: ""
             val title = backStackEntry.arguments?.getString("title") ?: ""
+            val profileId = backStackEntry.arguments?.getInt("profileId") ?: -1
+            val movieId = backStackEntry.arguments?.getInt("movieId") ?: -1
             val decodedUrl = Uri.decode(encodedUrl)
             val decodedTitle = Uri.decode(title)
 
@@ -120,7 +130,7 @@ fun AppNavigation() {
             val localUri = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
             val videoUri = localUri?.toString() ?: decodedUrl
 
-            PlayerScreen(navController, videoUri)
+            PlayerScreen(navController, videoUri, profileId, movieId)
 
             // Only download if the URL is a remote one and not already downloaded
             if (decodedUrl.startsWith("http") && localUri == null) {
