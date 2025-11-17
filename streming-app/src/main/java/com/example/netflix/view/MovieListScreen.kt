@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -37,8 +39,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,11 +68,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.netflix.R
 import com.example.netflix.model.Movie
+import com.example.netflix.repository.ProgressRepository
+import com.example.netflix.util.WatchProgressManager
 import com.example.netflix.viewmodel.MovieViewModel
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource.Companion.UserInput
 import kotlinx.coroutines.CoroutineScope
@@ -214,11 +221,32 @@ fun MovieListScreen(
     val movies by viewModel.movies.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val watchProgressManager = remember { WatchProgressManager(context) }
+    val progressRepository = remember { ProgressRepository() }
+    val progressRefreshScope = rememberCoroutineScope()
+    var progressMap by remember(profileId) { mutableStateOf<Map<Int, Long>>(emptyMap()) }
     var selectedMovie by remember { mutableStateOf<Movie?>(null) }
     var expandedMovie by remember { mutableStateOf<Movie?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var accountMenuExpanded by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
+    fun readLocalProgress(): Map<Int, Long> {
+        return movies.associate { movie ->
+            movie.id to watchProgressManager.getProgress(profileId, movie.id)
+        }
+    }
+
+    suspend fun syncProgressWithBackend() {
+        val response = runCatching { progressRepository.getProfileProgress(profileId) }.getOrNull()
+        if (response != null && response.isSuccessful) {
+            response.body().orEmpty().forEach { progress ->
+                watchProgressManager.saveProgress(profileId, progress.movieId, progress.positionMs)
+            }
+        }
+        progressMap = readLocalProgress()
+    }
 
     val onQualitySelected = { movie: Movie, quality: String ->
         val fileName = "${movie.name}-${quality}.mp4"
@@ -238,6 +266,25 @@ fun MovieListScreen(
 
     LaunchedEffect(profileId) {
         viewModel.fetchMovies()
+        syncProgressWithBackend()
+    }
+
+    LaunchedEffect(profileId, movies) {
+        progressMap = readLocalProgress()
+    }
+
+    DisposableEffect(lifecycleOwner, profileId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                progressRefreshScope.launch {
+                    syncProgressWithBackend()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     if (selectedMovie != null) {
@@ -391,6 +438,7 @@ fun MovieListScreen(
                             items(filteredMovies) { movie ->
                                 MovieCard(
                                     movie = movie,
+                                    progressMs = progressMap[movie.id] ?: 0L,
                                     onClick = { selectedMovie = movie },
                                     onLongClick = { expandedMovie = movie }
                                 )
@@ -453,7 +501,7 @@ fun SearchAppBar(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MovieCard(movie: Movie, onClick: () -> Unit, onLongClick: () -> Unit) {
+fun MovieCard(movie: Movie, progressMs: Long, onClick: () -> Unit, onLongClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -480,6 +528,28 @@ fun MovieCard(movie: Movie, onClick: () -> Unit, onLongClick: () -> Unit) {
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.height(12.dp))
+            if (progressMs > 0L) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.9f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Continue • ${formatPlaybackPosition(progressMs)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
             Text(
                 text = movie.name,
                 style = MaterialTheme.typography.titleMedium,
@@ -517,6 +587,18 @@ fun getGenreName(genreId: Int): String {
     }
 }
 
+private fun formatPlaybackPosition(positionMs: Long): String {
+    val totalSeconds = positionMs / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format("%02d:%02d", minutes, seconds)
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun MovieCardPreview() {
@@ -546,7 +628,12 @@ fun MovieCardPreview() {
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(mockMovies) { movie ->
-                MovieCard(movie = movie, onClick = {}, onLongClick = {})
+                MovieCard(
+                    movie = movie,
+                    progressMs = if (movie.id % 2 == 0) 120_000L else 0L,
+                    onClick = {},
+                    onLongClick = {}
+                )
             }
         }
     }

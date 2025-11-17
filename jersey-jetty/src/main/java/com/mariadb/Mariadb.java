@@ -60,6 +60,18 @@ public class Mariadb {
           + " CONSTRAINT unique_user_profile UNIQUE (userId, name))";
 
       stmt.executeUpdate(sql);
+      sql = "CREATE TABLE IF NOT EXISTS WATCH_PROGRESS "
+          + "(id INT AUTO_INCREMENT not NULL, "
+          + " profileId INT not NULL, "
+          + " movieId INT not NULL, "
+          + " positionMs BIGINT not NULL, "
+          + " updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, "
+          + " PRIMARY KEY ( id ), "
+          + " CONSTRAINT fk_progress_profile FOREIGN KEY (profileId) REFERENCES PROFILE(id) ON DELETE CASCADE, "
+          + " CONSTRAINT fk_progress_movie FOREIGN KEY (movieId) REFERENCES MOVIE(id) ON DELETE CASCADE, "
+          + " CONSTRAINT unique_progress UNIQUE (profileId, movieId))";
+
+      stmt.executeUpdate(sql);
       System.out.println("Created table in given database...");
     } catch (SQLException se) {
       Mariadb.exit();
@@ -142,6 +154,24 @@ public class Mariadb {
     } finally {
     }
 
+    return true;
+  }
+
+  public static boolean execute(String stm, String[] args) {
+    try {
+      PreparedStatement pstm = conn.prepareStatement(stm);
+      for (int i = 0; i < args.length; i++) {
+        pstm.setString(i + 1, args[i]);
+      }
+      pstm.executeUpdate();
+    } catch (SQLException se) {
+      se.printStackTrace();
+      Mariadb.exit();
+      return false;
+    } catch (Exception e) {
+      e.printStackTrace();
+      return false;
+    }
     return true;
   }
 

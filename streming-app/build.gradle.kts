@@ -64,6 +64,7 @@ dependencies {
         implementation("androidx.media3:media3-exoplayer-dash:$media3Version")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.appcompat)
 
