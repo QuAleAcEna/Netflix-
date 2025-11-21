@@ -1,6 +1,7 @@
 package com.mkyong;
 
 import jakarta.ws.rs.core.StreamingOutput;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
@@ -25,29 +26,39 @@ public class MediaStreamer implements StreamingOutput {
     public void write(OutputStream outputStream) {
         try {
             while (length != 0) {
-                int read;
+                int read = 0;
                 try {
                     read = raf.read(buf, 0, buf.length > length ? length : buf.length);
-                    outputStream.write(buf, 0, read);
+                    if(read == -1) break;
                     length -= read;
                 } catch (IOException ex) {
-                    System.err.println("Error while reading from raf or writing to OutStream");
+                    try {
+                        System.err.printf("Error while reading from raf:FileSize = %d, read = %d, length = %d, error = "+ex.toString()+'\n',raf.length(),read,length);
+                    } catch (IOException ex1) {
+                    }
                 }
+                try {
+                    outputStream.write(buf, 0, read);
+                }
+                catch (EOFException ex) {
+                }
+                 catch (IOException ex) {
+                        System.err.printf("Error while writing to OutStream:read = %d, length = %d, error = "+ex.toString()+'\n',read,length);
+
+                }
+
             }
         } finally {
             try {
-              if(raf != null)
-                raf.close();
-              if(outputStream != null)
-                outputStream.close();
+              raf.close();
             } catch (IOException ex) {
-                System.err.println("Error while closing raf");
+                System.err.println("Error while closing raf/output stream");
 
             }
         }
     }
 
-    public int getLenth() {
+    public int getLength() {
         return length;
     }
 }

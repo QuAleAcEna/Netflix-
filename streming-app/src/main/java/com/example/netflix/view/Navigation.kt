@@ -249,7 +249,7 @@ fun AppNavigation() {
                             
                             // Keep delay as requested
                             if (attempt < maxAttempts - 1) {
-                                delay(100)
+                                delay(75)
                             }
                         }
 
@@ -299,9 +299,10 @@ fun AppNavigation() {
                 }
             }
 
-            if (videoUri != null) {
-                PlayerScreen(navController, videoUri!!, profileId, movieId)
+            if (videoUri == null) {
+                videoUri = decodedUrl
             }
+                PlayerScreen(navController, videoUri!!, profileId, movieId)
         }
     }
 }

@@ -59,8 +59,6 @@ fun PlayerScreen(
     }
     var hasAppliedResume by remember(player) { mutableStateOf(false) }
     
-    var retryCount by remember { mutableIntStateOf(0) }
-
     DisposableEffect(Unit) {
         val window = (view.context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
@@ -83,27 +81,9 @@ fun PlayerScreen(
                         runCatching { progressRepository.clearProgress(profileId, movieId) }
                     }
                 }
-                // Reset retry count on successful playback (if we get to READY state)
-                if (playbackState == Player.STATE_READY) {
-                    retryCount = 0
-                }
             }
 
-            override fun onPlayerError(error: PlaybackException) {
-                if (retryCount < 3) {
-                    retryCount++
-                    Toast.makeText(context, "Connection lost. Retrying... ($retryCount/3)", Toast.LENGTH_SHORT).show()
-                    // Re-prepare player to retry
-                    player.prepare()
-                    player.play()
-                } else {
-                    Toast.makeText(context, "Connection failed. Returning to login.", Toast.LENGTH_LONG).show()
-                    // Navigate back to login screen
-                    navController.navigate("signin") {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
-            }
+
         }
 
         player.addListener(listener)
@@ -170,6 +150,7 @@ fun PlayerScreen(
             PlayerView(ctx).apply {
                 this.player = player
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                keepScreenOn = true
             }
         }
     )

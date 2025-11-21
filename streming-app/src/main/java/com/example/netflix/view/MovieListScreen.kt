@@ -241,8 +241,6 @@ fun MovieListScreen(
     }
 
     suspend fun syncProgressWithBackend() {
-        var attempts = 0
-        while (attempts < 3) {
             try {
                 val response = progressRepository.getProfileProgress(profileId)
                 if (response.isSuccessful) {
@@ -255,18 +253,7 @@ fun MovieListScreen(
                     throw Exception("API Error ${response.code()}")
                 }
             } catch (e: Exception) {
-                attempts++
-                if (attempts < 3) {
-                    Toast.makeText(context, "Connection lost. Retrying... ($attempts/3)", Toast.LENGTH_SHORT).show()
-                    delay(2000)
-                } else {
-                    Toast.makeText(context, "Connection failed. Returning to login.", Toast.LENGTH_LONG).show()
-                    navController.navigate("signin") {
-                        popUpTo("splash") { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
-            }
+
         }
     }
 

@@ -1,0 +1,27 @@
+Current absolute path is: C:\Users\Gustavo Santos\StudioProjects\Netflix-\jersey-jetty
+Connecting to a selected database...
+Connected database successfully...
+Creating table in given database...
+Created table in given database...
+Application started.
+Stop the application using CTRL+C
+0
+376832
+0
+4097
+95852938
+95617024
+95852938
+409601
+95617023
+23986176
+95617023
+55869440
+95617023
+76906496
+95617023
+89423872
+95617023
+Fetch success
+Fetch success
+Fetch success
