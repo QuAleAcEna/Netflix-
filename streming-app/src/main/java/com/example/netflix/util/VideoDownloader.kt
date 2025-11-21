@@ -1,83 +1,91 @@
 package com.example.netflix.util
 
-import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
+import android.widget.Toast
 import androidx.core.net.toUri
+import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
+
 class VideoDownloader(private val context: Context) {
 
-    private val downloadManager = context.getSystemService(DownloadManager::class.java)
-    private val prefs = context.getSharedPreferences("video_downloader_prefs", Context.MODE_PRIVATE)
-    @Synchronized
-    fun downloadVideo(url: String, title: String) {
-        val finalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), title)
-        val tempFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "$title.tmp")
+    private val client = OkHttpClient()
+    // Scope tied to the class instance, which is remembered in AppNavigation
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val activeDownloads = mutableSetOf<String>()
 
-        if (finalFile.exists() || tempFile.exists()) {
+    private fun getSafeFileName(title: String): String {
+        return title.replace("[^a-zA-Z0-9._ -]".toRegex(), "_")
+    }
+
+    fun downloadVideo(url: String, title: String) {
+        val safeTitle = getSafeFileName(title)
+        val finalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), safeTitle)
+        
+        if (finalFile.exists() || activeDownloads.contains(safeTitle)) {
             return
         }
 
-        val request = DownloadManager.Request(url.toUri())
-            .setTitle(title)
-            .setDescription("Downloading")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationUri(Uri.fromFile(tempFile))
+        activeDownloads.add(safeTitle)
+        
+        scope.launch {
+            try {
+                val tempFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "$safeTitle.tmp")
+                if (tempFile.exists()) tempFile.delete()
 
-        val downloadId = downloadManager.enqueue(request)
-        prefs.edit()
-            .putLong("download_id_$url", downloadId)
-            .putString("temp_path_$url", tempFile.absolutePath)
-            .apply()
-    }
+                Log.d("VideoDownloader", "Starting download: $url -> ${tempFile.name}")
 
-    fun isDownloaded(url: String, title: String): Boolean {
-        val finalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), title)
-        if (finalFile.exists()) {
-            return true
-        }
-
-        val downloadId = prefs.getLong("download_id_$url", -1L)
-        if (downloadId == -1L) return false
-
-        val query = DownloadManager.Query().setFilterById(downloadId)
-        downloadManager.query(query)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                if (statusIndex != -1 && cursor.getInt(statusIndex) == DownloadManager.STATUS_SUCCESSFUL) {
-                    val tempPath = prefs.getString("temp_path_$url", null)
-                    if (tempPath != null) {
-                        val tempFile = File(tempPath)
-                        if (tempFile.exists()) {
-                            finalFile.parentFile?.mkdirs()
-                            if (tempFile.renameTo(finalFile)) {
-                                prefs.edit()
-                                    .remove("download_id_$url")
-                                    .remove("temp_path_$url")
-                                    .apply()
-                                return true
-                            } else {
-                                // If rename fails, delete the temp file to allow redownload
-                                tempFile.delete()
-                                prefs.edit()
-                                    .remove("download_id_$url")
-                                    .remove("temp_path_$url")
-                                    .apply()
-                            }
-                        }
-                    }
+                val request = Request.Builder().url(url).build()
+                val response = client.newCall(request).execute()
+                
+                if (!response.isSuccessful) {
+                    Log.e("VideoDownloader", "Download failed: ${response.code}")
+                    return@launch
                 }
+
+                val body = response.body ?: return@launch
+                val inputStream = body.byteStream()
+                val outputStream = FileOutputStream(tempFile)
+                
+                val buffer = ByteArray(8192)
+                var bytesRead = 0
+                
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    outputStream.write(buffer, 0, bytesRead)
+                }
+                
+                outputStream.flush()
+                outputStream.close()
+                inputStream.close()
+                response.close()
+                
+                if (tempFile.renameTo(finalFile)) {
+                    Log.d("VideoDownloader", "Download complete: ${finalFile.name}")
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Download Complete: $title", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Log.e("VideoDownloader", "Failed to rename temp file")
+                    // Attempt cleanup
+                    tempFile.delete()
+                }
+            } catch (e: Exception) {
+                Log.e("VideoDownloader", "Download error", e)
+            } finally {
+                activeDownloads.remove(safeTitle)
             }
         }
-        return false
     }
 
     fun getLocalVideoUri(url: String, title: String): Uri? {
-        val isDownloadFinish = isDownloaded(url, title)
-        val finalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), title)
-        // isDownloaded will handle the rename if needed.
-        if ( isDownloadFinish && finalFile.exists()) {
+        val safeTitle = getSafeFileName(title)
+        val finalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), safeTitle)
+        if (finalFile.exists()) {
             return finalFile.toUri()
         }
         return null

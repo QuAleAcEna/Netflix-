@@ -1,6 +1,7 @@
 package com.example.netflix.view
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -22,6 +24,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -55,6 +58,8 @@ fun PlayerScreen(
         mutableStateOf(progressManager.getProgress(profileId, movieId))
     }
     var hasAppliedResume by remember(player) { mutableStateOf(false) }
+    
+    var retryCount by remember { mutableIntStateOf(0) }
 
     DisposableEffect(Unit) {
         val window = (view.context as Activity).window
@@ -76,6 +81,26 @@ fun PlayerScreen(
                     progressManager.clearProgress(profileId, movieId)
                     coroutineScope.launch {
                         runCatching { progressRepository.clearProgress(profileId, movieId) }
+                    }
+                }
+                // Reset retry count on successful playback (if we get to READY state)
+                if (playbackState == Player.STATE_READY) {
+                    retryCount = 0
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                if (retryCount < 3) {
+                    retryCount++
+                    Toast.makeText(context, "Connection lost. Retrying... ($retryCount/3)", Toast.LENGTH_SHORT).show()
+                    // Re-prepare player to retry
+                    player.prepare()
+                    player.play()
+                } else {
+                    Toast.makeText(context, "Connection failed. Returning to login.", Toast.LENGTH_LONG).show()
+                    // Navigate back to login screen
+                    navController.navigate("signin") {
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             }

@@ -5,23 +5,66 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.net.Uri
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import android.os.Environment
+import android.util.Log
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.netflix.util.VideoDownloader
-import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.example.netflix.util.NetworkUtils
+import com.example.netflix.util.P2PManager
+import com.example.netflix.util.P2PServer
+import com.example.netflix.util.VideoDownloader
+import com.example.netflix.util.UDPBeacon
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun AppNavigation() {
     val context = LocalContext.current
     val navController = rememberNavController()
     val videoDownloader = remember(context) { VideoDownloader(context) }
+
+    // Initialize P2P Manager, Server and UDP Beacon
+    val p2pManager = remember(context) { P2PManager(context) }
+    val p2pServer = remember(context) { P2PServer(8888) }
+    val udpBeacon = remember(context) { 
+        UDPBeacon(context, 8889, context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir) 
+    }
+
+    DisposableEffect(Unit) {
+        p2pManager.initialize()
+        p2pManager.discoverPeers()
+        // Start P2P server to share downloaded files
+        p2pServer.start(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir)
+        udpBeacon.start()
+        onDispose {
+            p2pManager.cleanup()
+            p2pServer.stop()
+            udpBeacon.stop()
+        }
+    }
+
+    val peers by p2pManager.peers.collectAsState()
+    val isConnected by p2pManager.isConnected.collectAsState()
+    val discoveredIps by udpBeacon.discoveredIps.collectAsState()
+
+    // Auto connect to first peer for demo purposes
+    LaunchedEffect(peers) {
+        if (peers.isNotEmpty() && !isConnected) {
+            p2pManager.connect(peers[0])
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -127,16 +170,137 @@ fun AppNavigation() {
                 }
             }
 
-            val localUri = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
-            val videoUri = localUri?.toString() ?: decodedUrl
+            var videoUri by remember { mutableStateOf<String?>(null) }
 
-            PlayerScreen(navController, videoUri, profileId, movieId)
+            LaunchedEffect(decodedUrl, decodedTitle, isConnected, discoveredIps) {
+                try {
+                    // 1. Check locally - Offload IO to prevent ANR and catch crashes
+                    val localUri = withContext(Dispatchers.IO) {
+                        try {
+                            videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                        } catch (e: Exception) {
+                            Log.e("AppNavigation", "Error checking local video", e)
+                            null
+                        }
+                    }
+                    
+                    if (localUri != null) {
+                        videoUri = localUri.toString()
+                        Log.d("AppNavigation", "Playing locally: $localUri")
+                        return@LaunchedEffect
+                    }
 
-            // Only download if the URL is a remote one and not already downloaded
-            if (decodedUrl.startsWith("http") && localUri == null) {
-                LaunchedEffect(decodedUrl) {
-                    videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                    // 2. Check peers if connected or discovered via UDP
+                    if (decodedUrl.startsWith("http")) {
+                        // Keep maxAttempts and delay as requested
+                        val maxAttempts = if (videoUri == null) 25 else 1
+                        var foundPeerUrl: String? = null
+                        
+                        // Short timeout for scanning to keep attempts fast
+                        val client = OkHttpClient.Builder()
+                            .connectTimeout(1000, TimeUnit.MILLISECONDS)
+                            .readTimeout(1000, TimeUnit.MILLISECONDS)
+                            .build()
+                            
+                        val safeTitle = Uri.encode(decodedTitle)
+
+                        for (attempt in 0 until maxAttempts) {
+                            val potentialIps = mutableListOf<String>()
+                            
+                            // Add Wifi-Direct Group Owner
+                            if (isConnected) {
+                                val ownerAddress = p2pManager.getGroupOwnerAddress()
+                                if (ownerAddress != null) {
+                                    potentialIps.add(ownerAddress.hostAddress ?: "")
+                                }
+                                // Fallback to ARP scan
+                                potentialIps.addAll(NetworkUtils.getPeerIpAddresses())
+                            }
+                            // Add UDP Discovered IPs
+                            potentialIps.addAll(discoveredIps)
+
+                            if (potentialIps.isNotEmpty()) {
+                                withContext(Dispatchers.IO) {
+                                    // Parallel scan for faster results
+                                    val jobs = potentialIps.distinct().map { ip ->
+                                        async {
+                                            if (ip.isEmpty() || ip == "0.0.0.0" || ip == "IP") return@async null
+                                            val testUrl = "http://$ip:8888/$safeTitle"
+                                            try {
+                                                val request = Request.Builder().url(testUrl).head().build()
+                                                val response = client.newCall(request).execute()
+                                                if (response.isSuccessful) {
+                                                    response.close()
+                                                    return@async testUrl
+                                                }
+                                                response.close()
+                                                null
+                                            } catch (_: Exception) {
+                                                null
+                                            }
+                                        }
+                                    }
+                                    val results = jobs.awaitAll()
+                                    foundPeerUrl = results.firstOrNull { it != null }
+                                }
+                            }
+
+                            if (foundPeerUrl != null) break
+                            
+                            // Keep delay as requested
+                            if (attempt < maxAttempts - 1) {
+                                delay(100)
+                            }
+                        }
+
+                        if (foundPeerUrl != null) {
+                            videoUri = foundPeerUrl
+                            Log.d("AppNavigation", "Playing from peer: $foundPeerUrl")
+                            
+                            // Delay download to allow player to buffer and prevent lag/crash due to race conditions or resource contention
+                            delay(3000)
+                            
+                            Log.d("AppNavigation", "Starting peer download: $foundPeerUrl")
+                            // Download from peer to become a seeder.
+                            // Removed the delay that was preventing download start, wrapped in IO to be safe.
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    videoDownloader.downloadVideo(foundPeerUrl, decodedTitle)
+                                } catch (e: Exception) {
+                                    Log.e("AppNavigation", "Failed to start peer download", e)
+                                }
+                            }
+                            return@LaunchedEffect
+                        }
+                    }
+
+                    // 3. Fallback to server URL and download
+                    videoUri = decodedUrl
+                    if (decodedUrl.startsWith("http")) {
+                        // Offload to IO to prevent ANR/Crash on slow disk ops
+                        withContext(Dispatchers.IO) {
+                            try {
+                                videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                            } catch (e: Exception) {
+                                Log.e("AppNavigation", "Failed to start fallback download", e)
+                            }
+                        }
+                    }
+                    Log.d("AppNavigation", "Playing from server: $decodedUrl")
+                
+                } catch (e: CancellationException) {
+                    throw e // Don't catch cancellation
+                } catch (e: Exception) {
+                    Log.e("AppNavigation", "Critical error in navigation effect", e)
+                    // Ensure video plays from server if logic crashes
+                    if (videoUri == null) {
+                        videoUri = decodedUrl
+                    }
                 }
+            }
+
+            if (videoUri != null) {
+                PlayerScreen(navController, videoUri!!, profileId, movieId)
             }
         }
     }
