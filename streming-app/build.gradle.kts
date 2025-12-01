@@ -53,6 +53,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // Define the media3 version once
+    implementation("io.netty:netty-all:4.1.107.Final")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
         // Core ExoPlayer functionality

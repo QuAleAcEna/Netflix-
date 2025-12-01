@@ -24,7 +24,7 @@ class VideoDownloader(private val context: Context) {
     private val activeDownloads = mutableSetOf<String>()
 
     private fun getSafeFileName(title: String): String {
-        return title.replace("[^a-zA-Z0-9._ -]".toRegex(), "_")
+        return toSafeFileName(title)
     }
 
     fun downloadVideo(url: String, title: String) {
@@ -180,5 +180,9 @@ class VideoDownloader(private val context: Context) {
 
     companion object {
         private const val MAX_CHUNK_SIZE_BYTES = 10 * 1024 * 1024L // 10 MB
+
+        fun toSafeFileName(title: String): String {
+            return title.replace("[^a-zA-Z0-9._ -]".toRegex(), "_")
+        }
     }
 }
