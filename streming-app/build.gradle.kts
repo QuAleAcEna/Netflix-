@@ -28,6 +28,14 @@ android {
             )
         }
     }
+    packaging {
+        resources {
+            // Avoid duplicate META-INF/INDEX.LIST from Netty native artifacts
+            excludes += "META-INF/INDEX.LIST"
+            // Avoid duplicate Netty version properties across native transports
+            excludes += "META-INF/io.netty.versions.properties"
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
