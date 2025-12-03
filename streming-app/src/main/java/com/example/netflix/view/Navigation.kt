@@ -146,7 +146,7 @@ fun AppNavigation() {
 
             LaunchedEffect(decodedUrl, decodedTitle) {
                 try {
-                    // 1. Check locally - Offload IO to prevent ANR and catch crashes
+                    // 1) Check local storage first
                     val localUri = withContext(Dispatchers.IO) {
                         try {
                             videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
@@ -162,29 +162,50 @@ fun AppNavigation() {
                         return@LaunchedEffect
                     }
 
-                    // 2. Play from provided HTTP URL and sync chunks from that host
-                    videoUri = decodedUrl
+                    // 2) Try to fetch chunks from a peer (Netty seeder) before hitting the origin server
                     if (decodedUrl.startsWith("http")) {
                         val uri = Uri.parse(decodedUrl)
                         val host = uri.host
                         if (host != null) {
-                            launch(Dispatchers.IO) {
+                            val fetchedFromPeer = withContext(Dispatchers.IO) {
                                 try {
                                     torrentClient.fetchAndStore(host, 9000, safeTitle)
                                 } catch (e: Exception) {
                                     Log.e("AppNavigation", "Torrent sync failed", e)
+                                    false
+                                }
+                            }
+                            if (fetchedFromPeer) {
+                                val freshLocal = withContext(Dispatchers.IO) {
+                                    try {
+                                        videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                                    } catch (e: Exception) {
+                                        Log.e("AppNavigation", "Error re-checking local video after peer fetch", e)
+                                        null
+                                    }
+                                }
+                                if (freshLocal != null) {
+                                    videoUri = freshLocal.toString()
+                                    Log.d("AppNavigation", "Playing from peer-downloaded file: $freshLocal")
+                                    return@LaunchedEffect
                                 }
                             }
                         }
+
+                        // 3) Fallback to origin server: play while also downloading in background
+                        videoUri = decodedUrl
                         withContext(Dispatchers.IO) {
                             try {
                                 videoDownloader.downloadVideo(decodedUrl, decodedTitle)
                             } catch (e: Exception) {
-                                Log.e("AppNavigation", "Failed to start download", e)
+                                Log.e("AppNavigation", "Failed to start download from origin", e)
                             }
                         }
+                        Log.d("AppNavigation", "Playing from origin: $decodedUrl")
+                    } else {
+                        // Non-HTTP sources: just play the provided URI
+                        videoUri = decodedUrl
                     }
-                    Log.d("AppNavigation", "Playing from server: $decodedUrl")
                 
                 } catch (e: CancellationException) {
                     throw e // Don't catch cancellation
