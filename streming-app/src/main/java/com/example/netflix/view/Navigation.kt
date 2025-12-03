@@ -5,23 +5,37 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.net.Uri
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import android.os.Environment
+import android.util.Log
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.netflix.util.VideoDownloader
-import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.example.netflix.util.VideoDownloader
+import com.example.netflix.util.TorrentClient
+import com.example.netflix.util.TorrentServer
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun AppNavigation() {
     val context = LocalContext.current
     val navController = rememberNavController()
     val videoDownloader = remember(context) { VideoDownloader(context) }
+    val torrentServer = remember(context) { TorrentServer(9000, context) }
+    val torrentClient = remember(context) { TorrentClient(context) }
+
+    DisposableEffect(Unit) {
+        torrentServer.start()
+        onDispose {
+            torrentServer.stop()
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -113,6 +127,7 @@ fun AppNavigation() {
             val movieId = backStackEntry.arguments?.getInt("movieId") ?: -1
             val decodedUrl = Uri.decode(encodedUrl)
             val decodedTitle = Uri.decode(title)
+            val safeTitle = VideoDownloader.toSafeFileName(decodedTitle)
 
             // Lock orientation to landscape for the player
             val activity = context.findActivity()
@@ -127,17 +142,65 @@ fun AppNavigation() {
                 }
             }
 
-            val localUri = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
-            val videoUri = localUri?.toString() ?: decodedUrl
+            var videoUri by remember { mutableStateOf<String?>(null) }
 
-            PlayerScreen(navController, videoUri, profileId, movieId)
+            LaunchedEffect(decodedUrl, decodedTitle) {
+                try {
+                    // 1. Check locally - Offload IO to prevent ANR and catch crashes
+                    val localUri = withContext(Dispatchers.IO) {
+                        try {
+                            videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                        } catch (e: Exception) {
+                            Log.e("AppNavigation", "Error checking local video", e)
+                            null
+                        }
+                    }
+                    
+                    if (localUri != null) {
+                        videoUri = localUri.toString()
+                        Log.d("AppNavigation", "Playing locally: $localUri")
+                        return@LaunchedEffect
+                    }
 
-            // Only download if the URL is a remote one and not already downloaded
-            if (decodedUrl.startsWith("http") && localUri == null) {
-                LaunchedEffect(decodedUrl) {
-                    videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                    // 2. Play from provided HTTP URL and sync chunks from that host
+                    videoUri = decodedUrl
+                    if (decodedUrl.startsWith("http")) {
+                        val uri = Uri.parse(decodedUrl)
+                        val host = uri.host
+                        if (host != null) {
+                            launch(Dispatchers.IO) {
+                                try {
+                                    torrentClient.fetchAndStore(host, 9000, safeTitle)
+                                } catch (e: Exception) {
+                                    Log.e("AppNavigation", "Torrent sync failed", e)
+                                }
+                            }
+                        }
+                        withContext(Dispatchers.IO) {
+                            try {
+                                videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                            } catch (e: Exception) {
+                                Log.e("AppNavigation", "Failed to start download", e)
+                            }
+                        }
+                    }
+                    Log.d("AppNavigation", "Playing from server: $decodedUrl")
+                
+                } catch (e: CancellationException) {
+                    throw e // Don't catch cancellation
+                } catch (e: Exception) {
+                    Log.e("AppNavigation", "Critical error in navigation effect", e)
+                    // Ensure video plays from server if logic crashes
+                    if (videoUri == null) {
+                        videoUri = decodedUrl
+                    }
                 }
             }
+
+            if (videoUri == null) {
+                videoUri = decodedUrl
+            }
+            PlayerScreen(navController, videoUri!!, profileId, movieId)
         }
     }
 }

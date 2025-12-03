@@ -1,5 +1,17 @@
 package com.mkyong.endpoints;
 
+import com.mariadb.Mariadb;
+import com.mariadb.Movie;
+import com.mkyong.MediaStreamer;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -10,20 +22,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-
-import com.mariadb.Mariadb;
-import com.mariadb.Movie;
-import com.mkyong.MediaStreamer;
-
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.HttpHeaders;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.StreamingOutput;
 
 @Path("/movie")
 public class Movies implements endpoint {
@@ -151,7 +149,7 @@ public class Movies implements endpoint {
           .status(Response.Status.PARTIAL_CONTENT)
           .header("Accept-Ranges", "bytes")
           .header("Content-Range", responseRange)
-          .header(HttpHeaders.CONTENT_LENGTH, mediaStreamer.getLenth())
+          .header(HttpHeaders.CONTENT_LENGTH, mediaStreamer.getLength())
           .header(HttpHeaders.LAST_MODIFIED, new Date(videoFile.lastModified()))
           .build();
     } catch (IOException e) {

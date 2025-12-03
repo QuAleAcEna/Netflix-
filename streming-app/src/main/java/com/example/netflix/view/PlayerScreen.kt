@@ -1,6 +1,7 @@
 package com.example.netflix.view
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -22,6 +24,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -55,7 +58,7 @@ fun PlayerScreen(
         mutableStateOf(progressManager.getProgress(profileId, movieId))
     }
     var hasAppliedResume by remember(player) { mutableStateOf(false) }
-
+    
     DisposableEffect(Unit) {
         val window = (view.context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
@@ -79,6 +82,8 @@ fun PlayerScreen(
                     }
                 }
             }
+
+
         }
 
         player.addListener(listener)
@@ -145,6 +150,7 @@ fun PlayerScreen(
             PlayerView(ctx).apply {
                 this.player = player
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                keepScreenOn = true
             }
         }
     )

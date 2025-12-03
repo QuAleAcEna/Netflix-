@@ -1,16 +1,15 @@
 package com.mkyong.endpoints;
 
+import com.mariadb.*;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import com.mariadb.*;
 
 @Path("/user")
 public class Users implements endpoint {
@@ -51,7 +50,7 @@ public class Users implements endpoint {
         return new User(newUserId, sanitizedName, password);
       }
     } catch (SQLException se) {
-      se.printStackTrace();
+     // se.printStackTrace();
     } finally {
     }
 
@@ -73,7 +72,7 @@ public class Users implements endpoint {
         return new User(result.getInt("id"), result.getString("name"), result.getString("password"));
       }
     } catch (SQLException se) {
-      se.printStackTrace();
+      //se.printStackTrace();
     } finally {
     }
 
