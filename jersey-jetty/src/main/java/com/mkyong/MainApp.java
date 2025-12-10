@@ -22,7 +22,7 @@ public class MainApp {
     // final ResourceConfig config = new ResourceConfig().packages("com.mkyong");
     Class<?>[] set = { com.mkyong.endpoints.Users.class, com.mkyong.endpoints.Movies.class,
         com.mkyong.endpoints.Profiles.class, com.mkyong.endpoints.Progress.class,
-        com.mkyong.endpoints.UploadService.class };
+        com.mkyong.endpoints.UploadService.class, com.mkyong.endpoints.CmsAuth.class };
     final ResourceConfig config = new ResourceConfig(set);
     final Server server = JettyHttpContainerFactory.createServer(URI.create(BASE_URI), config);
     for(Connector con : server.getConnectors()){

@@ -3,6 +3,8 @@ package com.example.cms_app.network
 import com.example.cms_app.model.CreateUserRequest
 import com.example.cms_app.model.Movie
 import com.example.cms_app.model.User
+import com.example.cms_app.model.CmsUser
+import com.example.cms_app.model.LoginRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -34,4 +36,8 @@ interface ApiService {
 
     @DELETE("user/{id}")
     suspend fun deleteUser(@Path("id") id: Int): Response<Unit>
+
+    // CMS auth
+    @POST("cms/login")
+    suspend fun login(@Body request: LoginRequest): Response<CmsUser>
 }

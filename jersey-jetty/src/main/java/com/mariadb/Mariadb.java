@@ -38,6 +38,13 @@ public class Mariadb {
           + " PRIMARY KEY ( id ))";
 
       stmt.executeUpdate(sql);
+      sql = "CREATE TABLE IF NOT EXISTS CMS_USER "
+          + "(id INT AUTO_INCREMENT not NULL, "
+          + " username VARCHAR(255) not NULL UNIQUE, "
+          + " password VARCHAR(255) not NULL, "
+          + " PRIMARY KEY ( id ))";
+
+      stmt.executeUpdate(sql);
       sql = "CREATE TABLE IF NOT EXISTS MOVIE "
           + "(id INT AUTO_INCREMENT not NULL, "
           + " name VARCHAR(255) not NULL, "
@@ -73,6 +80,15 @@ public class Mariadb {
 
       stmt.executeUpdate(sql);
       System.out.println("Created table in given database...");
+
+      // Seed default CMS admin user if missing
+      String[] adminArgs = { "admin" };
+      ResultSet adminExists = queryDB("SELECT id FROM CMS_USER WHERE username = ?", adminArgs);
+      if (adminExists == null || !adminExists.next()) {
+        String[] seedArgs = { "admin", "admin" };
+        insert("INSERT INTO CMS_USER(username,password) VALUES(?,?)", seedArgs);
+        System.out.println("Seeded default CMS admin user.");
+      }
     } catch (SQLException se) {
       Mariadb.exit();
       se.printStackTrace();
