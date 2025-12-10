@@ -1,0 +1,37 @@
+package com.example.cms_app.network
+
+import com.example.cms_app.model.CreateUserRequest
+import com.example.cms_app.model.Movie
+import com.example.cms_app.model.User
+import retrofit2.Response
+import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.Path
+
+interface ApiService {
+
+    // Movies
+    @GET("movie")
+    suspend fun getMovies(): Response<List<Movie>>
+
+    @POST("movie")
+    suspend fun uploadMovie(@Body movie: Movie): Response<Movie>
+
+    @POST("movie/{id}/transcode-lowres")
+    suspend fun generateLowRes(@Path("id") id: Int): Response<Unit>
+
+    @DELETE("movie/{id}")
+    suspend fun deleteMovie(@Path("id") id: Int): Response<Unit>
+
+    // Users (for streaming app)
+    @GET("user")
+    suspend fun getUsers(): Response<List<User>>
+
+    @POST("user")
+    suspend fun createUser(@Body request: CreateUserRequest): Response<User>
+
+    @DELETE("user/{id}")
+    suspend fun deleteUser(@Path("id") id: Int): Response<Unit>
+}
