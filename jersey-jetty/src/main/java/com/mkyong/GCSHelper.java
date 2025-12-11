@@ -56,16 +56,28 @@ public class GCSHelper {
     return Channels.newInputStream(blob.reader());
   }
 
-  static public Response streamVideoWithRange(String objectName, String rangeHeader) throws Exception {
+  /**
+   * Stream a video from GCS supporting Range requests.
+   *
+   * @param bucketName  The GCS bucket.
+   * @param objectName  The object path in GCS.
+   * @param rangeHeader The HTTP Range header (can be null).
+   * @return Response with streaming output.
+   * @throws Exception on GCS errors.
+   */
+
+  public static Response streamFromGcs(String objectName, String rangeHeader) throws Exception {
+    objectName = objectName.replaceFirst("https://storage.googleapis.com/" + bucketName + "/", "");
     Blob blob = storage.get(BlobId.of(bucketName, objectName));
-    if (blob == null)
-      return Response.status(Response.Status.NOT_FOUND).build();
+    if (blob == null) {
+      return Response.status(Response.Status.NOT_FOUND).entity("Video not found in GCS").build();
+    }
 
     long blobSize = blob.getSize();
     long start = 0;
     long end = blobSize - 1;
 
-    // parse the Range header
+    // Parse Range header if present
     if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
       String[] parts = rangeHeader.replace("bytes=", "").split("-");
       start = Long.parseLong(parts[0]);
@@ -75,29 +87,22 @@ public class GCSHelper {
     }
 
     long contentLength = end - start + 1;
-    final long finalStart = start;
-    final long finalEnd = end;
 
+    // Wrap ReadChannel as InputStream
     ReadChannel reader = blob.reader();
-    reader.seek(finalStart);
+    reader.seek(start);
+    InputStream inputStream = Channels.newInputStream(reader);
 
     StreamingOutput stream = output -> {
-      ByteBuffer buffer = ByteBuffer.allocate(1024 * 1024);
-      long bytesToRead = contentLength;
-      while (bytesToRead > 0) {
-        buffer.clear();
-        int read = reader.read(buffer);
-        if (read < 0)
-          break;
-        buffer.flip();
-        if (read > bytesToRead) {
-          read = (int) bytesToRead;
-        }
-        output.write(buffer.array(), 0, read);
-        bytesToRead -= read;
+      byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
+      long bytesLeft = contentLength;
+      int read;
+      while (bytesLeft > 0 && (read = inputStream.read(buffer, 0, (int) Math.min(buffer.length, bytesLeft))) != -1) {
+        output.write(buffer, 0, read);
+        bytesLeft -= read;
       }
       output.flush();
-      reader.close();
+      inputStream.close();
     };
 
     return Response.ok(stream, "video/mp4")
@@ -108,16 +113,4 @@ public class GCSHelper {
         .build();
   }
 
-  public Response streamVideoFromGCS(String bucketName, String objectName, String range) throws IOException {
-    Storage storage = StorageOptions.getDefaultInstance().getService();
-    Blob blob = storage.get(bucketName, objectName);
-    if (blob == null)
-      return Response.status(Response.Status.NOT_FOUND).build();
-
-    InputStream inputStream = Channels.newInputStream(blob.reader());
-    File tempFile = File.createTempFile("video", ".mp4");
-    Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-    return Movies.buildStream(tempFile, range); // reuse your existing streaming method
-  }
 }

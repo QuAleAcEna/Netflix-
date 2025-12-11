@@ -172,7 +172,7 @@ public class Movies implements endpoint {
       }
       String videoPath = result.getString("videoPath");
       videoPath = String.format("%s/%d.mp4", videoPath, resolution);
-      return GCSHelper.streamVideoWithRange(videoPath, range);
+      return GCSHelper.streamFromGcs(videoPath, range);
 
     } catch (Exception e) {
       e.printStackTrace();
