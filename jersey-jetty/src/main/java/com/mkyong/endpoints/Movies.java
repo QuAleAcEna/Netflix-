@@ -3,8 +3,11 @@ package com.mkyong.endpoints;
 import com.mariadb.Mariadb;
 import com.mariadb.Movie;
 import com.mkyong.MediaStreamer;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -26,6 +29,14 @@ import java.util.List;
 @Path("/movie")
 public class Movies implements endpoint {
   private static final int BUFFER_SIZE = 1024 * 1024; // 1MB
+  public static class CreateMovieRequest {
+    public String name;
+    public String description;
+    public Integer genre;
+    public Integer year;
+    public String videoPath;
+    public String thumbnailPath;
+  }
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
@@ -46,6 +57,68 @@ public class Movies implements endpoint {
     }
     System.out.println("Fetch success");
     return Response.ok(list).build();
+  }
+
+  @POST
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response createMovie(CreateMovieRequest request) {
+    if (request == null || request.name == null || request.videoPath == null || request.thumbnailPath == null) {
+      return Response.status(Response.Status.BAD_REQUEST).build();
+    }
+    String name = request.name.trim();
+    if (name.isEmpty()) {
+      return Response.status(Response.Status.BAD_REQUEST).build();
+    }
+    String[] existsArgs = { name };
+    ResultSet exists = Mariadb.queryDB("SELECT id FROM MOVIE WHERE name = ?", existsArgs);
+    try {
+      if (exists != null && exists.next()) {
+        System.out.println("Create movie refused: movie already exists -> " + name);
+        return Response.status(Response.Status.CONFLICT).entity("Movie already exists").build();
+      }
+    } catch (SQLException ignored) {
+      System.out.println("Create movie failed checking existing for " + name);
+    }
+
+    String[] args = {
+        name,
+        request.description != null ? request.description : "",
+        request.genre != null ? Integer.toString(request.genre) : null,
+        request.year != null ? Integer.toString(request.year) : null,
+        request.videoPath,
+        request.thumbnailPath
+    };
+    Integer newId = Mariadb.insertAndReturnId(
+        "INSERT INTO MOVIE(name,description,genre,year,videoPath,thumbnailPath) VALUES(?,?,?,?,?,?)", args);
+    if (newId == null) {
+      System.out.println("Create movie failed (DB insert) for " + name);
+      return Response.serverError().build();
+    }
+    System.out.println("Created movie id=" + newId + " name=" + name);
+    Movie movie = new Movie(newId, name, request.description != null ? request.description : "",
+        request.genre != null ? request.genre : 0,
+        request.year != null ? request.year : 0,
+        request.videoPath, request.thumbnailPath);
+    return Response.ok(movie).build();
+  }
+
+  @DELETE
+  @Path("/{id}")
+  public Response deleteMovie(@PathParam("id") int id) {
+    String[] args = { Integer.toString(id) };
+    ResultSet movie = Mariadb.queryDB("SELECT id FROM MOVIE WHERE id = ?", args);
+    try {
+      if (movie != null && movie.next()) {
+        Mariadb.execute("DELETE FROM MOVIE WHERE id = ?", args);
+        System.out.println("Deleted movie id=" + id);
+      } else {
+        System.out.println("Delete movie: id not found (id=" + id + ")");
+      }
+    } catch (SQLException ignored) {
+      System.out.println("Delete movie failed for id=" + id);
+    }
+    return Response.noContent().build();
   }
 
   @GET
