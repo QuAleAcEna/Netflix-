@@ -145,7 +145,7 @@ public class Movies implements endpoint {
             .build();
       String thumbnailPath;
       thumbnailPath = result.getString("thumbnailPath");
-      thumbnailPath = String.format("%s/img.png", thumbnailPath);
+      thumbnailPath = String.format("%s.png", thumbnailPath);
       return Response.seeOther(new java.net.URI(thumbnailPath)).build();
       // File file = new File(String.format("%s/%s.png", thumbnailPath, movieName));
       // return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM).build();
