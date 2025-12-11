@@ -2,6 +2,7 @@ package com.mkyong.endpoints;
 
 import com.mariadb.Mariadb;
 import com.mariadb.Movie;
+import com.mkyong.GCSHelper;
 import com.mkyong.MediaStreamer;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -162,31 +163,37 @@ public class Movies implements endpoint {
       @HeaderParam("Range") String range) {
     if (resolution != 1080 && resolution != 360)
       resolution = 1080;
-    String[] arg = { videoName };
-    ResultSet result = Mariadb.queryDB("SELECT videoPath FROM MOVIE WHERE name = ?", arg);
     try {
-      if (result.next() == false)
-        return Response.status(Response.Status.NOT_FOUND).entity("Video not found").type(MediaType.TEXT_PLAIN).build();
-      String videoPath;
-      videoPath = result.getString("videoPath");
-      videoPath = String.format("%s/%d", videoPath, resolution);
-      return Response.seeOther(new java.net.URI(videoPath)).build();
-      // File videoFile = new File(
-      // String.format("%s/%s.mp4", videoPath,
-      // Integer.toString(resolution)));
-      // System.out.printf("Video requested %s\n", videoName);
-      // return buildStream(videoFile, range);
-    } catch (SQLException e) {
+      // Step 1: Get video path from DB
+      String[] arg = { videoName };
+      ResultSet result = Mariadb.queryDB("SELECT videoPath FROM MOVIE WHERE name = ?", arg);
+      if (!result.next()) {
+        return Response.status(Response.Status.NOT_FOUND).entity("Video not found").build();
+      }
+      String videoPath = result.getString("videoPath");
+      videoPath = String.format("%s/%d.mp4", videoPath, resolution);
+
+      // Step 2: Get stream from GCS
+      InputStream gcsStream = GCSHelper.getGcsStreamFromPath(videoPath);
+      if (gcsStream == null) {
+        return Response.status(Response.Status.NOT_FOUND).entity("Video not found in GCS").build();
+      }
+
+      // Step 3: Optional: copy to temp file if buildStream requires File
+      File tempFile = File.createTempFile(videoName, ".mp4");
+      java.nio.file.Files.copy(gcsStream, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      tempFile.deleteOnExit();
+
+      // Step 4: Use existing streaming logic
+      return buildStream(tempFile, range);
+
+    } catch (Exception e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
-    } catch (URISyntaxException e) {
-      // TODO Auto-generated catch block
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
-      // e.printStackTrace();
     }
   }
 
-  private Response buildStream(final File videoFile, final String range) {
+  static public Response buildStream(final File videoFile, final String range) {
 
     long length = videoFile.length();
     long start = 0;

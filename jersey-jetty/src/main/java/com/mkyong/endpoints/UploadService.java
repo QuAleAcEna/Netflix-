@@ -108,6 +108,12 @@ public class UploadService implements endpoint {
       GCSHelper.upload("thumbnails/" + movieName + ".png", thumbFile, "image/png");
       GCSHelper.upload("videos/" + movieName + "/360.mp4", lowResFile, "video/mp4");
       GCSHelper.upload("videos/" + movieName + "/1080.mp4", highResFile, "video/mp4");
+
+      thumbFile.delete();
+      lowResFile.delete();
+      highResFile.delete();
+      File file = new File(uploadedFileLocation);
+      file.delete();
       return true;
     } catch (IOException e) {
       System.err.println("Unable to convert video");
