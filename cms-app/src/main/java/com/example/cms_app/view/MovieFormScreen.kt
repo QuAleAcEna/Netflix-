@@ -16,18 +16,24 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import com.example.cms_app.model.Movie
 import com.example.cms_app.viewmodel.MovieViewModel
 import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import java.io.File
+import java.io.InputStream
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,7 +43,10 @@ fun MovieFormScreen(
     onBack: () -> Unit
 ) {
     val movies = viewModel.movies.collectAsState()
+    val error = viewModel.error.collectAsState()
+    val isLoading = viewModel.isLoading.collectAsState()
     val lastOperationSucceeded = viewModel.lastOperationSucceeded.collectAsState()
+    val context = LocalContext.current
     val existing = movies.value.find { it.id == movieId }
     val nameState = remember { mutableStateOf(TextFieldValue(existing?.name.orEmpty())) }
     val descriptionState = remember { mutableStateOf(TextFieldValue(existing?.description.orEmpty())) }
@@ -45,6 +54,29 @@ fun MovieFormScreen(
     val thumbnailState = remember { mutableStateOf(TextFieldValue(existing?.thumbnailPath.orEmpty())) }
     val videoState = remember { mutableStateOf(TextFieldValue(existing?.videoPath.orEmpty())) }
     val scope = rememberCoroutineScope()
+
+    val pickVideoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+                    if (inputStream != null) {
+                        val tempFile = File.createTempFile("upload_", ".mp4", context.cacheDir)
+                        tempFile.outputStream().use { output ->
+                            inputStream.copyTo(output)
+                        }
+                        videoState.value = TextFieldValue(tempFile.absolutePath)
+                    } else {
+                        viewModel.setError("Unable to read selected file")
+                    }
+                } catch (e: Exception) {
+                    viewModel.setError("Failed to process selected file (${e.message})")
+                }
+            }
+        }
+    }
 
     LaunchedEffect(movieId) {
         if (movies.value.isEmpty()) {
@@ -101,30 +133,52 @@ fun MovieFormScreen(
             OutlinedTextField(
                 value = videoState.value,
                 onValueChange = { videoState.value = it },
-                label = { Text("Video path") },
+                label = { Text("Video file path (local)") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.size(24.dp))
+            Spacer(Modifier.size(16.dp))
+            Button(
+                onClick = { pickVideoLauncher.launch("video/*") },
+                enabled = !isLoading.value,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Pick video from device")
+            }
+            Spacer(Modifier.size(12.dp))
+            error.value?.let {
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.size(8.dp))
+            }
+            if (!isLoading.value && lastOperationSucceeded.value) {
+                Text(
+                    "Upload completed",
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.size(8.dp))
+            }
+            Spacer(Modifier.size(8.dp))
             Button(
                 onClick = {
-                    val movie = Movie(
-                        id = if (movieId == -1) 0 else movieId,
-                        name = nameState.value.text,
-                        description = descriptionState.value.text,
-                        genre = genreState.value.text.toIntOrNull() ?: 0,
-                        thumbnailPath = thumbnailState.value.text,
-                        videoPath = videoState.value.text
-                    )
-                    scope.launch {
-                        viewModel.uploadMovie(movie)
-                        if (lastOperationSucceeded.value) {
-                            onBack()
+                    val path = videoState.value.text
+                    if (path.isNotBlank()) {
+                        scope.launch {
+                            viewModel.uploadMovieFile(path)
                         }
                     }
                 },
+                enabled = !isLoading.value,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (movieId == -1) "Upload" else "Save")
+                if (isLoading.value) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                } else {
+                    Text("Upload video file (process on server)")
+                }
             }
         }
     }
