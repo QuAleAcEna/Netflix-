@@ -172,20 +172,7 @@ public class Movies implements endpoint {
       }
       String videoPath = result.getString("videoPath");
       videoPath = String.format("%s/%d.mp4", videoPath, resolution);
-
-      // Step 2: Get stream from GCS
-      InputStream gcsStream = GCSHelper.getGcsStreamFromPath(videoPath);
-      if (gcsStream == null) {
-        return Response.status(Response.Status.NOT_FOUND).entity("Video not found in GCS").build();
-      }
-
-      // Step 3: Optional: copy to temp file if buildStream requires File
-      File tempFile = File.createTempFile(videoName, ".mp4");
-      java.nio.file.Files.copy(gcsStream, tempFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-      tempFile.deleteOnExit();
-
-      // Step 4: Use existing streaming logic
-      return buildStream(tempFile, range);
+      return GCSHelper.streamVideoWithRange(videoPath, range);
 
     } catch (Exception e) {
       e.printStackTrace();
