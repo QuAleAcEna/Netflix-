@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -39,7 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.example.cms_app.viewmodel.MovieViewModel
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 fun MovieListScreen(
     viewModel: MovieViewModel,
     onCreateMovie: () -> Unit,
@@ -49,6 +53,10 @@ fun MovieListScreen(
     val isLoading = viewModel.isLoading.collectAsState()
     val error = viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isLoading.value,
+        onRefresh = { viewModel.loadMovies() }
+    )
 
     LaunchedEffect(error.value) {
         error.value?.let { snackbarHostState.showSnackbar(it) }
@@ -61,22 +69,13 @@ fun MovieListScreen(
                 Icon(Icons.Default.Add, contentDescription = "Upload movie")
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            BottomAppBar {
-                Button(
-                    onClick = { viewModel.loadMovies() },
-                    modifier = Modifier.padding(8.dp)
-                ) {
-                    Text("Refresh")
-                }
-            }
-        }
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .pullRefresh(pullRefreshState)
         ) {
             when {
                 isLoading.value && movies.value.isEmpty() -> {
@@ -124,6 +123,11 @@ fun MovieListScreen(
                     }
                 }
             }
+            PullRefreshIndicator(
+                refreshing = isLoading.value,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }

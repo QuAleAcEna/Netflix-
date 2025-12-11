@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,7 +41,7 @@ import com.example.cms_app.view.PullToRefresh
 import com.example.cms_app.viewmodel.UserViewModel
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 fun UserListScreen(
     viewModel: UserViewModel,
     onRefresh: () -> Unit
@@ -46,6 +50,10 @@ fun UserListScreen(
     val isLoading = viewModel.isLoading.collectAsState()
     val error = viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isLoading.value,
+        onRefresh = onRefresh
+    )
 
     val nameState = remember { mutableStateOf("") }
     val passwordState = remember { mutableStateOf("") }
@@ -99,10 +107,10 @@ fun UserListScreen(
                 }
             }
 
-            PullToRefresh(
-                isRefreshing = isLoading.value,
-                onRefresh = onRefresh,
-                modifier = Modifier.fillMaxSize()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pullRefresh(pullRefreshState)
             ) {
                 when {
                     isLoading.value && users.value.isEmpty() -> {
@@ -144,6 +152,11 @@ fun UserListScreen(
                         }
                     }
                 }
+                PullRefreshIndicator(
+                    refreshing = isLoading.value,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
             }
         }
     }
