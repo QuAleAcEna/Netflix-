@@ -145,9 +145,11 @@ public class Movies implements endpoint {
             .build();
       String thumbnailPath;
       thumbnailPath = result.getString("thumbnailPath");
-      File file = new File(String.format("%s/%s.png", thumbnailPath, movieName));
-      return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM).build();
-    } catch (SQLException e) {
+      thumbnailPath = String.format("%s/img.png", thumbnailPath);
+      return Response.seeOther(new java.net.URI(thumbnailPath)).build();
+      // File file = new File(String.format("%s/%s.png", thumbnailPath, movieName));
+      // return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM).build();
+    } catch (SQLException | URISyntaxException e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
     }
@@ -167,6 +169,7 @@ public class Movies implements endpoint {
         return Response.status(Response.Status.NOT_FOUND).entity("Video not found").type(MediaType.TEXT_PLAIN).build();
       String videoPath;
       videoPath = result.getString("videoPath");
+      videoPath = String.format("%s/%d", videoPath, resolution);
       return Response.seeOther(new java.net.URI(videoPath)).build();
       // File videoFile = new File(
       // String.format("%s/%s.mp4", videoPath,

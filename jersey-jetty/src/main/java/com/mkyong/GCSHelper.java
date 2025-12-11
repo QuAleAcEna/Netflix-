@@ -25,9 +25,9 @@ public class GCSHelper {
   public static void upload(String objectName, File file, String contentType) throws IOException {
     BlobId blobId = BlobId.of(bucketName, objectName);
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType(contentType).build();
-    try (InputStream in = new FileInputStream(file)) {
-      storage.writer(blobInfo).write((ByteBuffer) Channels.newChannel(in));
-    }
+
+    // deeply simpler: read the file bytes directly from the path
+    storage.create(blobInfo, java.nio.file.Files.readAllBytes(file.toPath()));
   }
 
   public static String getPublicUrl(String objectName) {

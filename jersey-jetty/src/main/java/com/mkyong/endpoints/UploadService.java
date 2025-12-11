@@ -65,16 +65,13 @@ public class UploadService implements endpoint {
       File videoDir = new File(System.getProperty("java.io.tmpdir"), movieName + "_videos");
       videoDir.mkdirs();
 
-      File thumbnailDir = new File(System.getProperty("java.io.tmpdir"), movieName + "_thumbs");
-      thumbnailDir.mkdirs();
-
-      File thumbFile = new File(thumbnailDir, movieName + ".png");
+      File thumbFile = new File(videoDir, "img.png");
       File lowResFile = new File(videoDir, "360.mp4");
       File highResFile = new File(videoDir, "1080.mp4");
 
       executeFFmpegCommand(
-          "ffmpeg", "-y", "-ss", "00:00:10", "-i", uploadedFileLocation,
-          "-frames", "1", String.format("./res/thumbnails/%s/%s.png", movieName, movieName));
+          "ffmpeg", "-y", "-ss", "00:00:01", "-i", uploadedFileLocation,
+          "-frames", "1", thumbFile.getAbsolutePath());
       System.out.println("Thumbnail generated");
 
       // Generate 360p video
@@ -86,7 +83,7 @@ public class UploadService implements endpoint {
           "-preset", "ultrafast",
           "-crf", "28",
           "-c:a", "copy",
-          String.format("./res/videos/%s/360.mp4", movieName));
+          lowResFile.getAbsolutePath());
       // executeFFmpegCommand(
       // "ffmpeg", "-y", "-i", uploadedFileLocation,
       // "-vf", "scale=640:360", "-c:a", "copy",
@@ -102,7 +99,7 @@ public class UploadService implements endpoint {
           "-preset", "ultrafast",
           "-crf", "28",
           "-c:a", "copy",
-          String.format("./res/videos/%s/1080.mp4", movieName));
+          highResFile.getAbsolutePath());
       // executeFFmpegCommand(
       // "ffmpeg", "-y", "-i", uploadedFileLocation,
       // "-vf", "scale=1920:1080", "-c:a", "copy",
