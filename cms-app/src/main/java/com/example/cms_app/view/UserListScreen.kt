@@ -33,12 +33,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.cms_app.view.PullToRefresh
 import com.example.cms_app.viewmodel.UserViewModel
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun UserListScreen(
-    viewModel: UserViewModel
+    viewModel: UserViewModel,
+    onRefresh: () -> Unit
 ) {
     val users = viewModel.users.collectAsState()
     val isLoading = viewModel.isLoading.collectAsState()
@@ -97,7 +99,11 @@ fun UserListScreen(
                 }
             }
 
-            Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefresh(
+                isRefreshing = isLoading.value,
+                onRefresh = onRefresh,
+                modifier = Modifier.fillMaxSize()
+            ) {
                 when {
                     isLoading.value && users.value.isEmpty() -> {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))

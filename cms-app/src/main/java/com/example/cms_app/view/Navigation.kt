@@ -107,7 +107,8 @@ fun AppNavigation(
             }
             composable("users") {
                 UserListScreen(
-                    viewModel = userViewModel
+                    viewModel = userViewModel,
+                    onRefresh = { userViewModel.loadUsers() }
                 )
             }
         }
