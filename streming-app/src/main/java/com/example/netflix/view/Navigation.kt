@@ -5,9 +5,13 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.net.Uri
-import android.os.Environment
 import android.util.Log
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -17,10 +21,16 @@ import androidx.navigation.navArgument
 import com.example.netflix.util.VideoDownloader
 import com.example.netflix.util.TorrentClient
 import com.example.netflix.util.TorrentServer
+import com.example.netflix.util.PeerDiscovery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
 
 @Composable
 fun AppNavigation() {
@@ -29,6 +39,12 @@ fun AppNavigation() {
     val videoDownloader = remember(context) { VideoDownloader(context) }
     val torrentServer = remember(context) { TorrentServer(9000, context) }
     val torrentClient = remember(context) { TorrentClient(context) }
+    val peerDiscovery = remember(context) { PeerDiscovery(context) }
+    
+    val peerFlow = remember(peerDiscovery) { peerDiscovery.discoverPeers() }
+    val discoveredPeersState = peerFlow.collectAsState(initial = emptyList())
+    
+    var retryTrigger by remember { mutableIntStateOf(0) }
 
     DisposableEffect(Unit) {
         torrentServer.start()
@@ -41,28 +57,14 @@ fun AppNavigation() {
         navController = navController,
         startDestination = "splash"
     ) {
-
-        // Splash Screen
-        composable("splash") {
-            SplashScreen(navController)
-        }
-
-        // Sign In Screen
-        composable("signin") {
-            SignInScreen(navController)
-        }
-
-        // Profile Selection Screen
+        composable("splash") { SplashScreen(navController) }
+        composable("signin") { SignInScreen(navController) }
+        
         composable(
             route = "profiles/{userId}/{userName}",
             arguments = listOf(
-                navArgument("userId") {
-                    type = NavType.IntType
-                },
-                navArgument("userName") {
-                    type = NavType.StringType
-                    defaultValue = ""
-                }
+                navArgument("userId") { type = NavType.IntType },
+                navArgument("userName") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getInt("userId") ?: -1
@@ -71,47 +73,24 @@ fun AppNavigation() {
             ProfileSelectionScreen(navController, userId = userId, accountName = userName)
         }
 
-        // Movie List Screen (Home)
         composable(
             route = "home/{userId}/{accountName}/{profileId}/{profileName}",
             arguments = listOf(
-                navArgument("userId") {
-                    type = NavType.IntType
-                },
-                navArgument("accountName") {
-                    type = NavType.StringType
-                    defaultValue = "_"
-                },
-                navArgument("profileId") {
-                    type = NavType.IntType
-                },
-                navArgument("profileName") {
-                    type = NavType.StringType
-                    defaultValue = ""
-                }
+                navArgument("userId") { type = NavType.IntType },
+                navArgument("accountName") { type = NavType.StringType; defaultValue = "_" },
+                navArgument("profileId") { type = NavType.IntType },
+                navArgument("profileName") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getInt("userId") ?: -1
             val encodedAccountName = backStackEntry.arguments?.getString("accountName") ?: "_"
-            val accountNameDecoded = Uri.decode(encodedAccountName)
-            val accountName = accountNameDecoded.takeIf { it != "_" } ?: ""
+            val accountName = Uri.decode(encodedAccountName).takeIf { it != "_" } ?: ""
             val profileId = backStackEntry.arguments?.getInt("profileId") ?: -1
             val encodedProfileName = backStackEntry.arguments?.getString("profileName") ?: ""
-            val profileName = if (encodedProfileName.isNotEmpty()) {
-                Uri.decode(encodedProfileName)
-            } else {
-                null
-            }
-            MovieListScreen(
-                navController,
-                userId = userId,
-                accountName = accountName,
-                profileId = profileId,
-                profileName = profileName
-            )
+            val profileName = if (encodedProfileName.isNotEmpty()) Uri.decode(encodedProfileName) else null
+            MovieListScreen(navController, userId, accountName, profileId, profileName)
         }
 
-        // Player Screen
         composable(
             route = "player/{profileId}/{movieId}/{url}/{title}",
             arguments = listOf(
@@ -129,24 +108,22 @@ fun AppNavigation() {
             val decodedTitle = Uri.decode(title)
             val safeTitle = VideoDownloader.toSafeFileName(decodedTitle)
 
-            // Lock orientation to landscape for the player
             val activity = context.findActivity()
             if (activity != null) {
                 DisposableEffect(Unit) {
                     val originalOrientation = activity.requestedOrientation
                     activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                    onDispose {
-                        // restore original orientation
-                        activity.requestedOrientation = originalOrientation
-                    }
+                    onDispose { activity.requestedOrientation = originalOrientation }
                 }
             }
 
             var videoUri by remember { mutableStateOf<String?>(null) }
+            val scope = rememberCoroutineScope()
 
-            LaunchedEffect(decodedUrl, decodedTitle) {
+            LaunchedEffect(decodedUrl, decodedTitle, retryTrigger) {
                 try {
-                    // 1) Check local storage first
+                    videoUri = null 
+
                     val localUri = withContext(Dispatchers.IO) {
                         try {
                             videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
@@ -162,66 +139,139 @@ fun AppNavigation() {
                         return@LaunchedEffect
                     }
 
-                    // 2) Try to fetch chunks from a peer (Netty seeder) before hitting the origin server
+                    var startedStreamingFromPeer = false
                     if (decodedUrl.startsWith("http")) {
-                        val uri = Uri.parse(decodedUrl)
-                        val host = uri.host
-                        if (host != null) {
-                            val fetchedFromPeer = withContext(Dispatchers.IO) {
-                                try {
-                                    torrentClient.fetchAndStore(host, 9000, safeTitle)
-                                } catch (e: Exception) {
-                                    Log.e("AppNavigation", "Torrent sync failed", e)
-                                    false
-                                }
-                            }
-                            if (fetchedFromPeer) {
-                                val freshLocal = withContext(Dispatchers.IO) {
-                                    try {
-                                        videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
-                                    } catch (e: Exception) {
-                                        Log.e("AppNavigation", "Error re-checking local video after peer fetch", e)
-                                        null
+                        Log.d("AppNavigation", "Scanning for peers...")
+                        val initialPeers = withTimeoutOrNull(4000) {
+                             snapshotFlow { discoveredPeersState.value }
+                                 .first { it.isNotEmpty() }
+                        } ?: discoveredPeersState.value
+
+                        if (initialPeers.isNotEmpty()) {
+                            val peerIps = initialPeers.mapNotNull { it.hostAddress }.filter { it.isNotEmpty() }
+                            
+                            if (peerIps.isNotEmpty()) {
+                                Log.d("AppNavigation", "Found ${peerIps.size} peers. Checking for manifest...")
+                                
+                                var manifest: com.example.netflix.util.TorrentManifest? = null
+                                var manifestSource: String? = null
+                                
+                                for (peerIp in peerIps) {
+                                    manifest = torrentClient.fetchMetadata(peerIp, 9000, safeTitle)
+                                    if (manifest != null) {
+                                        manifestSource = peerIp
+                                        break
                                     }
                                 }
-                                if (freshLocal != null) {
-                                    videoUri = freshLocal.toString()
-                                    Log.d("AppNavigation", "Playing from peer-downloaded file: $freshLocal")
-                                    return@LaunchedEffect
+
+                                if (manifest != null && manifestSource != null) {
+                                    Log.d("AppNavigation", "Starting swarm download from ${peerIps.size} peers.")
+                                    
+                                    // Use the new non-blocking signature
+                                    torrentClient.downloadContent(peerIps, 9000, safeTitle, manifest, onFailure = {
+                                        Log.e("AppNavigation", "Swarm download failed. Switching to origin.")
+                                        // We need to launch a coroutine because we are in a callback
+                                        scope.launch {
+                                            if (videoUri?.startsWith("http://127.0.0.1") == true) {
+                                                videoUri = decodedUrl 
+                                            }
+                                            withContext(Dispatchers.IO) {
+                                                try {
+                                                    videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                                                } catch (e: Exception) {
+                                                    Log.e("AppNavigation", "Failed to start fallback download", e)
+                                                }
+                                            }
+                                        }
+                                    })
+
+                                    videoUri = "http://127.0.0.1:9000/stream/$safeTitle"
+                                    startedStreamingFromPeer = true
+                                    
+                                    scope.launch(Dispatchers.IO) {
+                                        while(isActive) {
+                                            delay(3000)
+                                            val local = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                                            if (local != null) {
+                                                withContext(Dispatchers.Main) {
+                                                    Log.d("AppNavigation", "Assembly complete. Switching to local file.")
+                                                    videoUri = local.toString()
+                                                }
+                                                break
+                                            }
+                                            if (videoUri?.startsWith("http://127.0.0.1") != true && videoUri?.startsWith("file") != true && videoUri != decodedUrl) {
+                                                break
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
 
-                        // 3) Fallback to origin server: play while also downloading in background
-                        videoUri = decodedUrl
-                        withContext(Dispatchers.IO) {
-                            try {
-                                videoDownloader.downloadVideo(decodedUrl, decodedTitle)
-                            } catch (e: Exception) {
-                                Log.e("AppNavigation", "Failed to start download from origin", e)
-                            }
+                        if (!startedStreamingFromPeer) {
+                             Log.d("AppNavigation", "Falling back to origin server.")
+                             videoUri = decodedUrl
+                             withContext(Dispatchers.IO) {
+                                 try {
+                                     videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                                 } catch (e: Exception) {
+                                     Log.e("AppNavigation", "Failed to start download from origin", e)
+                                 }
+                             }
+                             
+                             // Poll for completion to switch to local file automatically (Server Download Case)
+                             scope.launch(Dispatchers.IO) {
+                                while(isActive) {
+                                    delay(3000)
+                                    val local = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                                    if (local != null) {
+                                        withContext(Dispatchers.Main) {
+                                            Log.d("AppNavigation", "Server download complete. Switching to local file.")
+                                            videoUri = local.toString()
+                                        }
+                                        break
+                                    }
+                                    // Keep polling if we are still watching from server
+                                    if (videoUri != decodedUrl && videoUri?.startsWith("file") != true) {
+                                        break
+                                    }
+                                }
+                             }
                         }
-                        Log.d("AppNavigation", "Playing from origin: $decodedUrl")
                     } else {
-                        // Non-HTTP sources: just play the provided URI
                         videoUri = decodedUrl
                     }
                 
                 } catch (e: CancellationException) {
-                    throw e // Don't catch cancellation
+                    throw e
                 } catch (e: Exception) {
-                    Log.e("AppNavigation", "Critical error in navigation effect", e)
-                    // Ensure video plays from server if logic crashes
-                    if (videoUri == null) {
-                        videoUri = decodedUrl
-                    }
+                    Log.e("AppNavigation", "Critical error", e)
+                    if (videoUri == null) videoUri = decodedUrl
                 }
             }
 
-            if (videoUri == null) {
-                videoUri = decodedUrl
+            if (videoUri != null) {
+                key(videoUri) {
+                    PlayerScreen(
+                        navController = navController,
+                        videoUrl = videoUri!!,
+                        profileId = profileId,
+                        movieId = movieId,
+                        onPlayerError = { errorMessage ->
+                            Log.e("AppNavigation", "Player Error: $errorMessage")
+                            if (videoUri?.startsWith("file") == true) {
+                                Log.e("AppNavigation", "Local file corrupted. Deleting and retrying...")
+                                videoDownloader.deleteVideoAndChunks(decodedTitle)
+                                retryTrigger++ 
+                            }
+                        }
+                    )
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-            PlayerScreen(navController, videoUri!!, profileId, movieId)
         }
     }
 }

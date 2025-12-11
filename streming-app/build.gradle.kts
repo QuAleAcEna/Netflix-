@@ -30,9 +30,7 @@ android {
     }
     packaging {
         resources {
-            // Avoid duplicate META-INF/INDEX.LIST from Netty native artifacts
             excludes += "META-INF/INDEX.LIST"
-            // Avoid duplicate Netty version properties across native transports
             excludes += "META-INF/io.netty.versions.properties"
         }
     }
@@ -51,7 +49,7 @@ kotlin {
     }
 }
 
-val media3Version = "1.8.0" // Always check for the latest stable version!
+val media3Version = "1.8.0"
 
 dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.7")
@@ -60,17 +58,17 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    // Define the media3 version once
+    
+    // Netty
     implementation("io.netty:netty-all:4.1.107.Final")
 
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-        // Core ExoPlayer functionality
-        implementation("androidx.media3:media3-exoplayer:$media3Version")
-        // UI components, including the PlayerView
-        implementation("androidx.media3:media3-ui:$media3Version")
-        // Optional: For HLS/DASH streaming support (recommended)
-        implementation("androidx.media3:media3-exoplayer-hls:$media3Version")
-        implementation("androidx.media3:media3-exoplayer-dash:$media3Version")
+    // Media3
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-ui:$media3Version")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3Version")
+    implementation("androidx.media3:media3-exoplayer-dash:$media3Version")
+    implementation("androidx.media3:media3-datasource:1.3.1")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
@@ -82,7 +80,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.appcompat)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -91,31 +89,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    //navigation
-
     implementation(libs.androidx.navigation.compose)
-
-    // Lifecycle ViewModel Compose
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-
-    // Retrofit + Gson
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.gson)
-
-    // OkHttp Logging
+    implementation(libs.retrofit.gson) // duplicated somewhat but might be needed if alias differs
     implementation(libs.okhttp.logging)
-
-    // ExoPlayer
-
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.exoplayer.hls)
-    implementation(libs.androidx.media3.ui)
-
-    // Coroutines
-    implementation(libs.kotlinx.coroutines.android)
-
     implementation(libs.coil.compose)
-
-    implementation("androidx.media3:media3-datasource:1.3.1")
-
 }

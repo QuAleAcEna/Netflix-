@@ -1,10 +1,9 @@
 package com.example.netflix.network
 
-import androidx.compose.ui.platform.LocalContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-const val BASE_URL = "http://192.168.1.72:8080/" // mudar conforme seu backend http://192.168.1.250/
+const val BASE_URL = "http://192.168.1.76:8080/" // mudar conforme seu backend http://192.168.1.250/
 
 object RetrofitInstance {
     val api: ApiService by lazy {

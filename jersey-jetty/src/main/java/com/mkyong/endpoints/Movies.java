@@ -95,6 +95,7 @@ public class Movies implements endpoint {
       File videoFile = new File(
           String.format("%s/%s.mp4", videoPath,
               Integer.toString(resolution)));
+    System.out.printf("Video requested %s\n",videoName);
       return buildStream(videoFile, range);
     } catch (SQLException e) {
       e.printStackTrace();

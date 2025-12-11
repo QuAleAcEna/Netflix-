@@ -1,6 +1,9 @@
 package com.example.netflix.view
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
@@ -46,7 +49,8 @@ fun PlayerScreen(
     navController: NavController,
     videoUrl: String,
     profileId: Int,
-    movieId: Int
+    movieId: Int,
+    onPlayerError: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val player = remember { ExoPlayer.Builder(context).build() }
@@ -59,17 +63,39 @@ fun PlayerScreen(
     }
     var hasAppliedResume by remember(player) { mutableStateOf(false) }
     
+    // Lock immersive mode and Keep Screen On
     DisposableEffect(Unit) {
-        val window = (view.context as Activity).window
+        val activity = context.findActivity() ?: return@DisposableEffect onDispose {}
+        val window = activity.window
         val insetsController = WindowCompat.getInsetsController(window, view)
 
+        // Enable immersive mode
         insetsController.apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+        
+        // Keep screen on
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        
+        onDispose {
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
 
+    // Effect to handle player setup and cleanup, RE-RUNS when videoUrl changes.
+    DisposableEffect(videoUrl) {
         val mediaItem = MediaItem.fromUri(videoUrl.toUri())
-        player.setMediaItem(mediaItem)
+        
+        // Preserve position when switching sources
+        val currentPosition = if (player.currentMediaItem != null) player.currentPosition else 0L
+        if (currentPosition > 0) {
+            resumePosition = currentPosition
+            hasAppliedResume = false 
+        }
+
+        player.setMediaItem(mediaItem, resumePosition)
         player.prepare()
         player.playWhenReady = true
 
@@ -82,52 +108,35 @@ fun PlayerScreen(
                     }
                 }
             }
-
-
+            
+            override fun onPlayerError(error: PlaybackException) {
+                // Report error back to parent
+                onPlayerError(error.message ?: "Unknown player error")
+            }
         }
 
         player.addListener(listener)
 
         onDispose {
-            insetsController.show(WindowInsetsCompat.Type.systemBars())
             val finalPosition = player.currentPosition
-            val shouldClear = player.playbackState == Player.STATE_ENDED ||
-                (player.duration > 0 && finalPosition >= player.duration - 750)
-            coroutineScope.launch {
-                if (shouldClear) {
-                    progressManager.clearProgress(profileId, movieId)
-                    runCatching { progressRepository.clearProgress(profileId, movieId) }
-                } else if (finalPosition > 0L) {
-                    progressManager.saveProgress(profileId, movieId, finalPosition)
+            if (finalPosition > 0L) {
+                 progressManager.saveProgress(profileId, movieId, finalPosition)
+                 coroutineScope.launch {
                     runCatching { progressRepository.saveProgress(profileId, movieId, finalPosition) }
                 }
             }
             player.removeListener(listener)
-            player.release()
+            player.stop() 
+        }
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            player.release() 
         }
     }
 
-    LaunchedEffect(profileId, movieId) {
-        val response = runCatching { progressRepository.getProgress(profileId, movieId) }.getOrNull()
-        if (response != null && response.isSuccessful) {
-            response.body()?.let { remote ->
-                if (remote.positionMs > 0L) {
-                    hasAppliedResume = false
-                    resumePosition = remote.positionMs
-                    progressManager.saveProgress(profileId, movieId, remote.positionMs)
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(player, resumePosition) {
-        if (!hasAppliedResume && resumePosition > 0L) {
-            player.seekTo(resumePosition)
-            hasAppliedResume = true
-        }
-    }
-
-    LaunchedEffect(player, profileId, movieId) {
+    LaunchedEffect(player) {
         var lastSyncedPosition = 0L
         while (isActive) {
             if (player.isPlaying) {
@@ -154,4 +163,13 @@ fun PlayerScreen(
             }
         }
     )
+}
+
+private fun Context.findActivity(): Activity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    return null
 }
