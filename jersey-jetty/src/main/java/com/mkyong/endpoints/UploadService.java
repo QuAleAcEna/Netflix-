@@ -36,8 +36,10 @@ public class UploadService implements endpoint {
 
     new Thread(() -> {
 
-      processVideo(uploadedFileLocation, movieName);
-      addVideoToDB(movieName);
+      if (processVideo(uploadedFileLocation, movieName))
+        addVideoToDB(movieName);
+      else
+        System.out.println("Unable to upload");
     }).start();
 
     return Response.status(200).build();
@@ -58,7 +60,7 @@ public class UploadService implements endpoint {
 
   }
 
-  private void processVideo(String uploadedFileLocation, String movieName) {
+  private boolean processVideo(String uploadedFileLocation, String movieName) {
     try {
       File videoDir = new File(System.getProperty("java.io.tmpdir"), movieName + "_videos");
       videoDir.mkdirs();
@@ -109,6 +111,7 @@ public class UploadService implements endpoint {
       GCSHelper.upload("thumbnails/" + movieName + ".png", thumbFile, "image/png");
       GCSHelper.upload("videos/" + movieName + "/360.mp4", lowResFile, "video/mp4");
       GCSHelper.upload("videos/" + movieName + "/1080.mp4", highResFile, "video/mp4");
+      return true;
     } catch (IOException e) {
       System.err.println("Unable to convert video");
       e.printStackTrace();
@@ -117,6 +120,7 @@ public class UploadService implements endpoint {
     } finally {
       new File(uploadedFileLocation).delete();
     }
+    return false;
 
   }
 
