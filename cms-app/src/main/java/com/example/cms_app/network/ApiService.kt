@@ -28,7 +28,7 @@ interface ApiService {
     suspend fun deleteMovie(@Path("id") id: Int): Response<Unit>
 
     // Users (for streaming app)
-    @GET("user")
+    @GET("user/all")
     suspend fun getUsers(): Response<List<User>>
 
     @POST("user")
