@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.cms_app.view.PullToRefresh
 import com.example.cms_app.viewmodel.UserViewModel
 
 @Composable
