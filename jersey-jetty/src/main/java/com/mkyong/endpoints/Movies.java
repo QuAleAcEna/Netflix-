@@ -20,6 +20,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.net.URISyntaxException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ import java.util.List;
 @Path("/movie")
 public class Movies implements endpoint {
   private static final int BUFFER_SIZE = 1024 * 1024; // 1MB
+
   public static class CreateMovieRequest {
     public String name;
     public String description;
@@ -165,14 +167,19 @@ public class Movies implements endpoint {
         return Response.status(Response.Status.NOT_FOUND).entity("Video not found").type(MediaType.TEXT_PLAIN).build();
       String videoPath;
       videoPath = result.getString("videoPath");
-      File videoFile = new File(
-          String.format("%s/%s.mp4", videoPath,
-              Integer.toString(resolution)));
-    System.out.printf("Video requested %s\n",videoName);
-      return buildStream(videoFile, range);
+      return Response.seeOther(new java.net.URI(videoPath)).build();
+      // File videoFile = new File(
+      // String.format("%s/%s.mp4", videoPath,
+      // Integer.toString(resolution)));
+      // System.out.printf("Video requested %s\n", videoName);
+      // return buildStream(videoFile, range);
     } catch (SQLException e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
+    } catch (URISyntaxException e) {
+      // TODO Auto-generated catch block
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
+      // e.printStackTrace();
     }
   }
 

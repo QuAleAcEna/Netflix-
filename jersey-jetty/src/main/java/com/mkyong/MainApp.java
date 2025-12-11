@@ -1,6 +1,12 @@
 package com.mkyong;
 
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.storage.StorageOptions;
 import com.mariadb.Mariadb;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -12,28 +18,39 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.glassfish.jersey.jetty.JettyHttpContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 
-
 public class MainApp {
   public static final String BASE_URI = "http://0.0.0.0:8080";
 
   public static Server startServer() {
 
     // scan packages
-    // final ResourceConfig config = new ResourceConfig().packages("com.mkyong");
+    try {
+      GCSHelper.storage = StorageOptions.newBuilder()
+          .setProjectId("valiant-splicer-480919-u7")
+          .setCredentials(
+              ServiceAccountCredentials.fromStream(new FileInputStream("key.json")))
+          .build()
+          .getService();
+    } catch (FileNotFoundException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    } // final ResourceConfig config = new ResourceConfig().packages("com.mkyong");
     Class<?>[] set = { com.mkyong.endpoints.Users.class, com.mkyong.endpoints.Movies.class,
         com.mkyong.endpoints.Profiles.class, com.mkyong.endpoints.Progress.class,
         com.mkyong.endpoints.UploadService.class, com.mkyong.endpoints.CmsAuth.class };
     final ResourceConfig config = new ResourceConfig(set);
     final Server server = JettyHttpContainerFactory.createServer(URI.create(BASE_URI), config);
-    for(Connector con : server.getConnectors()){
-      if(con instanceof ServerConnector){
-        ((ServerConnector) con).setIdleTimeout(300*1000);
+    for (Connector con : server.getConnectors()) {
+      if (con instanceof ServerConnector) {
+        ((ServerConnector) con).setIdleTimeout(300 * 1000);
         ((ServerConnector) con).setShutdownIdleTimeout(100000L);
         ((ServerConnector) con).setAcceptedSendBufferSize(4096);
       }
     }
-    
-      
+
     return server;
 
   }
@@ -50,7 +67,8 @@ public class MainApp {
     try {
 
       final Server server = startServer();
-      if(server == null) return;
+      if (server == null)
+        return;
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         try {
           System.out.println("Shutting down the application...");

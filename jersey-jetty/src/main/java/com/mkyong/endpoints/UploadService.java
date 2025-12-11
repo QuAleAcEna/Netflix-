@@ -1,6 +1,8 @@
 package com.mkyong.endpoints;
 
 import com.mariadb.Mariadb;
+import com.mkyong.GCSHelper;
+
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -44,8 +46,8 @@ public class UploadService implements endpoint {
 
   private void addVideoToDB(String movieName) {
 
-    String videoPath = String.format("./res/videos/%s", movieName);
-    String thumbnailPath = String.format("./res/thumbnails/%s", movieName);
+    String videoPath = GCSHelper.getPublicUrl(String.format("videos/%s", movieName));
+    String thumbnailPath = GCSHelper.getPublicUrl(String.format("thumbnails/%s", movieName));
     String[] args = { movieName, videoPath, thumbnailPath, "aaa", "0", "0" };
     if (Mariadb.insert("INSERT INTO MOVIE(name,videoPath,thumbnailPath,description,year,genre) VALUES(?,?,?,?,?,?)",
         args) == false) {
@@ -58,8 +60,15 @@ public class UploadService implements endpoint {
 
   private void processVideo(String uploadedFileLocation, String movieName) {
     try {
-      new File(String.format("./res/videos/%s", movieName)).mkdirs();
-      new File(String.format("./res/thumbnails/%s", movieName)).mkdirs();
+      File videoDir = new File(System.getProperty("java.io.tmpdir"), movieName + "_videos");
+      videoDir.mkdirs();
+
+      File thumbnailDir = new File(System.getProperty("java.io.tmpdir"), movieName + "_thumbs");
+      thumbnailDir.mkdirs();
+
+      File thumbFile = new File(thumbnailDir, movieName + ".png");
+      File lowResFile = new File(videoDir, "360.mp4");
+      File highResFile = new File(videoDir, "1080.mp4");
 
       executeFFmpegCommand(
           "ffmpeg", "-y", "-ss", "00:00:10", "-i", uploadedFileLocation,
@@ -97,7 +106,9 @@ public class UploadService implements endpoint {
       // "-vf", "scale=1920:1080", "-c:a", "copy",
       // String.format("./res/videos/%s/1080.mp4", movieName));
       System.out.println("High res video generated");
-
+      GCSHelper.upload("thumbnails/" + movieName + ".png", thumbFile, "image/png");
+      GCSHelper.upload("videos/" + movieName + "/360.mp4", lowResFile, "video/mp4");
+      GCSHelper.upload("videos/" + movieName + "/1080.mp4", highResFile, "video/mp4");
     } catch (IOException e) {
       System.err.println("Unable to convert video");
       e.printStackTrace();

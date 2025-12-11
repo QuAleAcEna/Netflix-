@@ -142,70 +142,82 @@ fun AppNavigation() {
                     var startedStreamingFromPeer = false
                     if (decodedUrl.startsWith("http")) {
                         Log.d("AppNavigation", "Scanning for peers...")
-                        val initialPeers = withTimeoutOrNull(4000) {
-                             snapshotFlow { discoveredPeersState.value }
-                                 .first { it.isNotEmpty() }
-                        } ?: discoveredPeersState.value
+                        
+                        // Retry logic: Attempt to find peers and manifest up to 3 times
+                        // This handles cases where peer discovery is slow or initial connection fails
+                        repeat(3) { attempt ->
+                            if (startedStreamingFromPeer) return@repeat // Break if already successful
 
-                        if (initialPeers.isNotEmpty()) {
-                            val peerIps = initialPeers.mapNotNull { it.hostAddress }.filter { it.isNotEmpty() }
-                            
-                            if (peerIps.isNotEmpty()) {
-                                Log.d("AppNavigation", "Found ${peerIps.size} peers. Checking for manifest...")
+                            val initialPeers = withTimeoutOrNull(2500) { // Slightly reduced timeout per attempt
+                                 snapshotFlow { discoveredPeersState.value }
+                                     .first { it.isNotEmpty() }
+                            } ?: discoveredPeersState.value
+
+                            if (initialPeers.isNotEmpty()) {
+                                val peerIps = initialPeers.mapNotNull { it.hostAddress }.filter { it.isNotEmpty() }
                                 
-                                var manifest: com.example.netflix.util.TorrentManifest? = null
-                                var manifestSource: String? = null
-                                
-                                for (peerIp in peerIps) {
-                                    manifest = torrentClient.fetchMetadata(peerIp, 9000, safeTitle)
+                                if (peerIps.isNotEmpty()) {
+                                    Log.d("AppNavigation", "Attempt $attempt/3: Found ${peerIps.size} peers. Checking for manifest...")
+                                    
+                                    var manifest: com.example.netflix.util.TorrentManifest? = null
+                                    
+                                    // Try all peers in this attempt
+                                    for (peerIp in peerIps) {
+                                        manifest = torrentClient.fetchMetadata(peerIp, 9000, safeTitle)
+                                        if (manifest != null) {
+                                            break
+                                        }
+                                    }
+
                                     if (manifest != null) {
-                                        manifestSource = peerIp
-                                        break
-                                    }
-                                }
-
-                                if (manifest != null && manifestSource != null) {
-                                    Log.d("AppNavigation", "Starting swarm download from ${peerIps.size} peers.")
-                                    
-                                    // Use the new non-blocking signature
-                                    torrentClient.downloadContent(peerIps, 9000, safeTitle, manifest, onFailure = {
-                                        Log.e("AppNavigation", "Swarm download failed. Switching to origin.")
-                                        // We need to launch a coroutine because we are in a callback
-                                        scope.launch {
-                                            if (videoUri?.startsWith("http://127.0.0.1") == true) {
-                                                videoUri = decodedUrl 
+                                        Log.d("AppNavigation", "Starting swarm download from ${peerIps.size} peers.")
+                                        
+                                        torrentClient.downloadContent(peerIps, 9000, safeTitle, manifest, onFailure = {
+                                            Log.e("AppNavigation", "Swarm download failed. Switching to origin.")
+                                            scope.launch {
+                                                if (videoUri?.startsWith("http://127.0.0.1") == true) {
+                                                    videoUri = decodedUrl 
+                                                }
+                                                withContext(Dispatchers.IO) {
+                                                    try {
+                                                        videoDownloader.downloadVideo(decodedUrl, decodedTitle)
+                                                    } catch (e: Exception) {
+                                                        Log.e("AppNavigation", "Failed to start fallback download", e)
+                                                    }
+                                                }
                                             }
-                                            withContext(Dispatchers.IO) {
-                                                try {
-                                                    videoDownloader.downloadVideo(decodedUrl, decodedTitle)
-                                                } catch (e: Exception) {
-                                                    Log.e("AppNavigation", "Failed to start fallback download", e)
+                                        })
+
+                                        videoUri = "http://127.0.0.1:9000/stream/$safeTitle"
+                                        startedStreamingFromPeer = true
+                                        
+                                        scope.launch(Dispatchers.IO) {
+                                            while(isActive) {
+                                                delay(3000)
+                                                val local = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                                                if (local != null) {
+                                                    withContext(Dispatchers.Main) {
+                                                        Log.d("AppNavigation", "Assembly complete. Switching to local file.")
+                                                        videoUri = local.toString()
+                                                    }
+                                                    break
+                                                }
+                                                if (videoUri?.startsWith("http://127.0.0.1") != true && videoUri?.startsWith("file") != true && videoUri != decodedUrl) {
+                                                    break
                                                 }
                                             }
                                         }
-                                    })
-
-                                    videoUri = "http://127.0.0.1:9000/stream/$safeTitle"
-                                    startedStreamingFromPeer = true
-                                    
-                                    scope.launch(Dispatchers.IO) {
-                                        while(isActive) {
-                                            delay(3000)
-                                            val local = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
-                                            if (local != null) {
-                                                withContext(Dispatchers.Main) {
-                                                    Log.d("AppNavigation", "Assembly complete. Switching to local file.")
-                                                    videoUri = local.toString()
-                                                }
-                                                break
-                                            }
-                                            if (videoUri?.startsWith("http://127.0.0.1") != true && videoUri?.startsWith("file") != true && videoUri != decodedUrl) {
-                                                break
-                                            }
-                                        }
+                                        return@repeat // Success, exit retry loop
+                                    } else {
+                                        Log.w("AppNavigation", "Attempt $attempt/3: Peers found but no manifest available. Retrying...")
                                     }
                                 }
+                            } else {
+                                Log.d("AppNavigation", "Attempt $attempt/3: No peers found yet.")
                             }
+                            
+                            // Wait a bit before next attempt if we haven't succeeded
+                            if (attempt < 2) delay(1000)
                         }
 
                         if (!startedStreamingFromPeer) {
@@ -219,7 +231,6 @@ fun AppNavigation() {
                                  }
                              }
                              
-                             // Poll for completion to switch to local file automatically (Server Download Case)
                              scope.launch(Dispatchers.IO) {
                                 while(isActive) {
                                     delay(3000)
@@ -231,7 +242,6 @@ fun AppNavigation() {
                                         }
                                         break
                                     }
-                                    // Keep polling if we are still watching from server
                                     if (videoUri != decodedUrl && videoUri?.startsWith("file") != true) {
                                         break
                                     }

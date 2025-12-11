@@ -20,7 +20,8 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Collections
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -32,6 +33,9 @@ class TorrentClient(context: Context) {
     private val gson = Gson()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val baseDir: File = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+
+    // Map to hold active download queues: SafeTitle -> Deque of chunks
+    private val activeDownloads = ConcurrentHashMap<String, ConcurrentLinkedDeque<ChunkInfo>>()
 
     suspend fun fetchMetadata(host: String, port: Int, safeTitle: String): TorrentManifest? = withContext(Dispatchers.IO) {
         try {
@@ -45,6 +49,35 @@ class TorrentClient(context: Context) {
         }
     }
 
+    fun prioritizeChunk(safeTitle: String, chunkName: String) {
+        val queue = activeDownloads[safeTitle] ?: return
+        
+        // We synchronize on the queue to ensure atomicity of remove/addFirst if needed, 
+        // though ConcurrentLinkedDeque is thread-safe, finding and moving needs care.
+        // Simple approach: find, remove, addFirst.
+        // Note: poll() removes from head. We want to be at head.
+        
+        // Ideally we want to move it to the FRONT.
+        // ConcurrentLinkedDeque supports addFirst().
+        
+        // Check if chunk is in the queue (not yet processing)
+        val iterator = queue.iterator()
+        var targetChunk: ChunkInfo? = null
+        while (iterator.hasNext()) {
+            val chunk = iterator.next()
+            if (chunk.name == chunkName) {
+                targetChunk = chunk
+                iterator.remove() // Remove from current position
+                break
+            }
+        }
+
+        if (targetChunk != null) {
+            Log.d("TorrentClient", "Prioritizing chunk: $chunkName")
+            queue.addFirst(targetChunk)
+        }
+    }
+
     fun downloadContent(
         peers: List<String>,
         port: Int,
@@ -53,7 +86,6 @@ class TorrentClient(context: Context) {
         concurrency: Int = 4,
         onFailure: () -> Unit
     ) {
-        // Launch a fire-and-forget coroutine for the entire download process.
         scope.launch {
             val success = downloadContentInternal(peers, port, safeTitle, manifest, concurrency)
             if (!success) {
@@ -90,85 +122,67 @@ class TorrentClient(context: Context) {
             val activePeers = Collections.synchronizedList(ArrayList(peers))
             Log.d("TorrentClient", "Swarming ${missing.size} chunks from ${activePeers.size} peers")
 
-            val highPriorityCount = 2
-            val highPriorityChunks = missing.take(highPriorityCount)
-            val remainingChunks = missing.drop(highPriorityCount)
+            // Use a Deque for the queue to allow prioritization (addFirst)
+            val chunksQueue = ConcurrentLinkedDeque(missing)
+            activeDownloads[safeTitle] = chunksQueue
 
-            if (highPriorityChunks.isNotEmpty()) {
-                Log.d("TorrentClient", "Downloading ${highPriorityChunks.size} high-priority chunks...")
-                val hpSuccess = downloadBatch(activePeers, port, safeTitle, highPriorityChunks, chunksDir, 2)
-                if (!hpSuccess) {
-                    Log.e("TorrentClient", "Failed to download high-priority chunks.")
-                    return false
+            try {
+                // Main download loop
+                val jobs = (1..concurrency).map { workerId ->
+                    scope.async {
+                        while (isActive) {
+                            if (activePeers.isEmpty()) return@async false
+                            
+                            // Poll from HEAD (prioritized chunks are here)
+                            val chunk = chunksQueue.poll() ?: return@async true
+                            
+                            var chunkDownloaded = false
+                            val peerCandidates = activePeers.toList().shuffled()
+                            
+                            for (host in peerCandidates) {
+                                if (!activePeers.contains(host)) continue
+                                var attempts = 0
+                                var success = false
+                                while (attempts < 4) {
+                                    if (downloadChunk(host, port, safeTitle, chunk, chunksDir)) {
+                                        success = true
+                                        break
+                                    }
+                                    attempts++
+                                    if (attempts < 4) delay(200)
+                                }
+
+                                if (success) {
+                                    chunkDownloaded = true
+                                    break
+                                } else {
+                                    Log.w("TorrentClient", "Peer $host failed 4 times. Removing.")
+                                    activePeers.remove(host)
+                                    if (activePeers.isEmpty()) return@async false
+                                }
+                            }
+                            if (!chunkDownloaded) {
+                                Log.e("TorrentClient", "Failed to download chunk ${chunk.name}")
+                                // Put back? No, failure logic bubbles up.
+                                return@async false
+                            }
+                        }
+                        true
+                    }
                 }
-            }
+                
+                val results = jobs.awaitAll()
+                if (results.any { !it }) return false
 
-            if (remainingChunks.isNotEmpty()) {
-                Log.d("TorrentClient", "Downloading remaining ${remainingChunks.size} chunks...")
-                val success = downloadBatch(activePeers, port, safeTitle, remainingChunks, chunksDir, concurrency)
-                if (!success) {
-                    return false
-                }
+                assembleIfNeeded(manifest, safeTitle, chunksDir)
+                true
+            } finally {
+                activeDownloads.remove(safeTitle)
             }
-
-            assembleIfNeeded(manifest, safeTitle, chunksDir)
-            true
         } catch (e: Exception) {
             Log.e("TorrentClient", "Torrent content download failed for $safeTitle", e)
             false
         }
-    }
-
-    private suspend fun downloadBatch(
-        activePeers: MutableList<String>,
-        port: Int,
-        safeTitle: String,
-        chunksToDownload: List<ChunkInfo>,
-        chunksDir: File,
-        concurrency: Int
-    ): Boolean {
-        val chunksQueue = ConcurrentLinkedQueue(chunksToDownload)
-        val jobs = (1..concurrency).map { workerId ->
-            scope.async {
-                while (isActive) {
-                    if (activePeers.isEmpty()) return@async false
-                    val chunk = chunksQueue.poll() ?: return@async true
-                    
-                    var chunkDownloaded = false
-                    val peerCandidates = activePeers.toList().shuffled()
-                    
-                    for (host in peerCandidates) {
-                        if (!activePeers.contains(host)) continue
-                        var attempts = 0
-                        var success = false
-                        while (attempts < 4) {
-                            if (downloadChunk(host, port, safeTitle, chunk, chunksDir)) {
-                                success = true
-                                break
-                            }
-                            attempts++
-                            if (attempts < 4) delay(200)
-                        }
-
-                        if (success) {
-                            chunkDownloaded = true
-                            break
-                        } else {
-                            Log.w("TorrentClient", "Peer $host failed 4 times. Removing.")
-                            activePeers.remove(host)
-                            if (activePeers.isEmpty()) return@async false
-                        }
-                    }
-                    if (!chunkDownloaded) {
-                        Log.e("TorrentClient", "Failed to download chunk ${chunk.name}")
-                        return@async false
-                    }
-                }
-                true
-            }
-        }
-        val results = jobs.awaitAll()
-        return results.all { it }
     }
 
     private fun saveManifestToDisk(manifest: TorrentManifest, safeTitle: String, chunksDir: File) {
@@ -225,7 +239,7 @@ class TorrentClient(context: Context) {
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
                 var bytesSinceFlush = 0
-                val flushThreshold = 256 * 1024
+                val flushThreshold = 64 * 1024 // More frequent flush (64KB) for faster streaming availability
                 
                 try {
                     while (inputStream.read(buffer).also { bytesRead = it } != -1) {
