@@ -126,7 +126,12 @@ fun AppNavigation() {
 
                     val localUri = withContext(Dispatchers.IO) {
                         try {
-                            videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                            val uri = videoDownloader.getLocalVideoUri(decodedUrl, decodedTitle)
+                            if (uri != null) {
+                                // Make sure P2P seeding can happen by regenerating chunks/manifest if missing
+                                videoDownloader.ensureChunksForLocalFile(decodedTitle)
+                            }
+                            uri
                         } catch (e: Exception) {
                             Log.e("AppNavigation", "Error checking local video", e)
                             null

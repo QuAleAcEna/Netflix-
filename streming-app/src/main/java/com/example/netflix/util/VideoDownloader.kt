@@ -104,6 +104,34 @@ class VideoDownloader(private val context: Context) {
         return null
     }
 
+    /**
+     * Ensure a locally stored movie has chunk files + manifest for seeding/P2P.
+     * If the assembled file exists but chunks/manifests are missing, regenerate them.
+     */
+    fun ensureChunksForLocalFile(title: String) {
+        val safeTitle = getSafeFileName(title)
+        val finalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), safeTitle)
+        if (!finalFile.exists()) return
+
+        val chunksDir = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "${safeTitle}_chunks")
+        val jsonManifest = File(chunksDir, "${safeTitle}_manifest.json")
+        val shaManifest = File(chunksDir, "${safeTitle}_manifest.sha256")
+        val hasChunks = chunksDir.exists() && chunksDir.listFiles()?.isNotEmpty() == true
+        val hasManifest = jsonManifest.exists() || shaManifest.exists()
+
+        if (hasChunks && hasManifest) {
+            Log.d("VideoDownloader", "Chunks + manifest already present for $safeTitle")
+            return
+        }
+
+        Log.d("VideoDownloader", "Chunks/manifest missing for $safeTitle. Regenerating...")
+        try {
+            createChunksAndHashes(finalFile, safeTitle)
+        } catch (e: Exception) {
+            Log.e("VideoDownloader", "Failed to regenerate chunks for $safeTitle", e)
+        }
+    }
+
     fun deleteVideoAndChunks(title: String) {
         val safeTitle = getSafeFileName(title)
         val finalFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), safeTitle)
