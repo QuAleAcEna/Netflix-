@@ -451,20 +451,7 @@ fun ProfileSelectionScreen(
                     }
                 )
             },
-            floatingActionButton = {
-                if (profiles.size < MAX_PROFILES) {
-                    FloatingActionButton(
-                        onClick = { showAddDialog = true },
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Adicionar perfil",
-                            tint = Color.White
-                        )
-                    }
-                }
-            }
+            floatingActionButton = { }
         ) { paddingValues ->
             Column(
                 modifier = Modifier
