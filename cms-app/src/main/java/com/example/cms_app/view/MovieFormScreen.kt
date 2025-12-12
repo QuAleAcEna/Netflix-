@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.example.cms_app.model.UpdateMovieRequest
 import com.example.cms_app.viewmodel.MovieViewModel
 import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -46,6 +47,7 @@ fun MovieFormScreen(
     val error = viewModel.error.collectAsState()
     val isLoading = viewModel.isLoading.collectAsState()
     val lastOperationSucceeded = viewModel.lastOperationSucceeded.collectAsState()
+    val isEdit = movieId != -1
     val context = LocalContext.current
     val existing = movies.value.find { it.id == movieId }
     val nameState = remember { mutableStateOf(TextFieldValue(existing?.name.orEmpty())) }
@@ -81,6 +83,15 @@ fun MovieFormScreen(
     LaunchedEffect(movieId) {
         if (movies.value.isEmpty()) {
             viewModel.loadMovies()
+        }
+    }
+    LaunchedEffect(existing) {
+        if (existing != null) {
+            nameState.value = TextFieldValue(existing.name)
+            descriptionState.value = TextFieldValue(existing.description)
+            genreState.value = TextFieldValue(existing.genre.toString())
+            thumbnailState.value = TextFieldValue(existing.thumbnailPath)
+            videoState.value = TextFieldValue(existing.videoPath)
         }
     }
 
@@ -130,21 +141,23 @@ fun MovieFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.size(12.dp))
-            OutlinedTextField(
-                value = videoState.value,
-                onValueChange = { videoState.value = it },
-                label = { Text("Video file path (local)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.size(16.dp))
-            Button(
-                onClick = { pickVideoLauncher.launch("video/*") },
-                enabled = !isLoading.value,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Pick video from device")
+            if (!isEdit) {
+                OutlinedTextField(
+                    value = videoState.value,
+                    onValueChange = { videoState.value = it },
+                    label = { Text("Video file path (local)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.size(16.dp))
+                Button(
+                    onClick = { pickVideoLauncher.launch("video/*") },
+                    enabled = !isLoading.value,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Pick video from device")
+                }
+                Spacer(Modifier.size(12.dp))
             }
-            Spacer(Modifier.size(12.dp))
             error.value?.let {
                 Text(
                     it,
@@ -155,29 +168,64 @@ fun MovieFormScreen(
             }
             if (!isLoading.value && lastOperationSucceeded.value) {
                 Text(
-                    "Upload completed",
+                    if (isEdit) "Changes saved" else "Upload completed",
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.size(8.dp))
             }
             Spacer(Modifier.size(8.dp))
-            Button(
-                onClick = {
-                    val path = videoState.value.text
-                    if (path.isNotBlank()) {
-                        scope.launch {
-                            viewModel.uploadMovieFile(path)
+            if (isEdit) {
+                Button(
+                    onClick = {
+                        val genreValue = genreState.value.text.toIntOrNull()
+                        if (nameState.value.text.isBlank()) {
+                            viewModel.setError("Title cannot be empty")
+                            return@Button
                         }
+                        if (thumbnailState.value.text.isBlank()) {
+                            viewModel.setError("Thumbnail path cannot be empty")
+                            return@Button
+                        }
+                        scope.launch {
+                            viewModel.updateMovie(
+                                movieId,
+                                UpdateMovieRequest(
+                                    name = nameState.value.text.trim(),
+                                    description = descriptionState.value.text.trim(),
+                                    genre = genreValue,
+                                    thumbnailPath = thumbnailState.value.text.trim()
+                                )
+                            )
+                        }
+                    },
+                    enabled = !isLoading.value,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isLoading.value) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    } else {
+                        Text("Save changes")
                     }
-                },
-                enabled = !isLoading.value,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isLoading.value) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Upload video file (process on server)")
+                }
+            } else {
+                Button(
+                    onClick = {
+                        val path = videoState.value.text
+                        if (path.isNotBlank()) {
+                            scope.launch {
+                                viewModel.uploadMovieFile(path)
+                            }
+                        }
+                    },
+                    enabled = !isLoading.value,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isLoading.value) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    } else {
+                        Text("Upload video file (process on server)")
+                    }
                 }
             }
         }

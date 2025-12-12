@@ -1,6 +1,7 @@
 package com.example.cms_app.repository
 
 import com.example.cms_app.model.Movie
+import com.example.cms_app.model.UpdateMovieRequest
 import com.example.cms_app.network.RetrofitInstance
 import retrofit2.Response
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -22,6 +23,8 @@ class MovieRepository {
         }
         return created
     }
+
+    suspend fun updateMovie(id: Int, request: UpdateMovieRequest) = api.updateMovie(id, request)
 
     suspend fun deleteMovie(id: Int) = api.deleteMovie(id)
 

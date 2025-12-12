@@ -6,7 +6,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-private const val BASE_URL = "http://192.168.1.72:8080/" // Update to match your backend host
+private const val BASE_URL = "http://10.0.2.2:8080/" // Update to match your backend host
 //192.168.1.72
 object RetrofitInstance {
     private val logging = HttpLoggingInterceptor().apply {

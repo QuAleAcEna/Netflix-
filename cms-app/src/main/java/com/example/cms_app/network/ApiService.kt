@@ -5,6 +5,7 @@ import com.example.cms_app.model.Movie
 import com.example.cms_app.model.User
 import com.example.cms_app.model.CmsUser
 import com.example.cms_app.model.LoginRequest
+import com.example.cms_app.model.UpdateMovieRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -13,6 +14,7 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.PUT
 import okhttp3.MultipartBody
 
 interface ApiService {
@@ -23,6 +25,12 @@ interface ApiService {
 
     @POST("movie")
     suspend fun uploadMovie(@Body movie: Movie): Response<Movie>
+
+    @PUT("movie/{id}")
+    suspend fun updateMovie(
+        @Path("id") id: Int,
+        @Body request: UpdateMovieRequest
+    ): Response<Movie>
 
     @POST("movie/{id}/transcode-lowres")
     suspend fun generateLowRes(@Path("id") id: Int): Response<Unit>

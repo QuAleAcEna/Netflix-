@@ -51,8 +51,8 @@ public class Movies implements endpoint {
       while (result.next()) {
         String movieName = result.getString("name");
         list.add(new Movie(result.getInt("id"), movieName, result.getString("description"),
-            result.getInt("genre"), result.getInt("year"), String.format("movie/%s", movieName),
-            String.format("movie/thumbnails/%s", movieName)));
+            result.getInt("genre"), result.getInt("year"), result.getString("videoPath"),
+            result.getString("thumbnailPath")));
       }
     } catch (SQLException se) {
       System.out.println("Fetch error");

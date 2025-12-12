@@ -3,6 +3,7 @@ package com.example.cms_app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cms_app.model.Movie
+import com.example.cms_app.model.UpdateMovieRequest
 import com.example.cms_app.repository.MovieRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -91,6 +92,32 @@ class MovieViewModel(
                 }
             } catch (e: Exception) {
                 _error.value = "Failed to upload movie (${e.message})"
+                _lastOperationSucceeded.value = false
+            }
+            _isLoading.value = false
+        }
+    }
+
+    fun updateMovie(id: Int, request: UpdateMovieRequest) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val response = repository.updateMovie(id, request)
+                if (response.isSuccessful) {
+                    val updated = response.body()
+                    _lastOperationSucceeded.value = true
+                    if (updated != null) {
+                        _movies.value = _movies.value.map { if (it.id == id) updated else it }
+                    } else {
+                        loadMovies()
+                    }
+                } else {
+                    _error.value = "Failed to update movie (${response.code()})"
+                    _lastOperationSucceeded.value = false
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to update movie (${e.message})"
                 _lastOperationSucceeded.value = false
             }
             _isLoading.value = false
