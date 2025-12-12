@@ -48,6 +48,7 @@ fun MovieFormScreen(
     val isLoading = viewModel.isLoading.collectAsState()
     val lastOperationSucceeded = viewModel.lastOperationSucceeded.collectAsState()
     val isEdit = movieId != -1
+    val didSubmit = remember { mutableStateOf(false) }
     val context = LocalContext.current
     val existing = movies.value.find { it.id == movieId }
     val nameState = remember { mutableStateOf(TextFieldValue(existing?.name.orEmpty())) }
@@ -92,6 +93,12 @@ fun MovieFormScreen(
             genreState.value = TextFieldValue(existing.genre.toString())
             thumbnailState.value = TextFieldValue(existing.thumbnailPath)
             videoState.value = TextFieldValue(existing.videoPath)
+        }
+    }
+    LaunchedEffect(lastOperationSucceeded.value, isLoading.value, didSubmit.value) {
+        if (didSubmit.value && lastOperationSucceeded.value && !isLoading.value) {
+            onBack()
+            didSubmit.value = false
         }
     }
 
@@ -188,6 +195,7 @@ fun MovieFormScreen(
                             return@Button
                         }
                         scope.launch {
+                            didSubmit.value = true
                             viewModel.updateMovie(
                                 movieId,
                                 UpdateMovieRequest(
@@ -214,6 +222,7 @@ fun MovieFormScreen(
                         val path = videoState.value.text
                         if (path.isNotBlank()) {
                             scope.launch {
+                                didSubmit.value = true
                                 viewModel.uploadMovieFile(path)
                             }
                         }
