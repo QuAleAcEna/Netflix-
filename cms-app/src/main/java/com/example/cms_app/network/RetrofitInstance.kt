@@ -10,7 +10,8 @@ private const val BASE_URL = "http://10.0.2.2:8080/" // Update to match your bac
 //192.168.1.72
 object RetrofitInstance {
     private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        // Avoid logging full bodies to prevent OOM on large payloads
+        level = HttpLoggingInterceptor.Level.HEADERS
     }
 
     private val client = OkHttpClient.Builder()
