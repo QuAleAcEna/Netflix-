@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.example.cms_app.model.Movie
 import com.example.cms_app.model.UpdateMovieRequest
 import com.example.cms_app.viewmodel.MovieViewModel
 import kotlinx.coroutines.launch
@@ -57,6 +58,29 @@ fun MovieFormScreen(
     val thumbnailState = remember { mutableStateOf(TextFieldValue(existing?.thumbnailPath.orEmpty())) }
     val videoState = remember { mutableStateOf(TextFieldValue(existing?.videoPath.orEmpty())) }
     val scope = rememberCoroutineScope()
+
+    val pickThumbnailLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+                    if (inputStream != null) {
+                        val tempFile = File.createTempFile("thumb_", ".png", context.cacheDir)
+                        tempFile.outputStream().use { output ->
+                            inputStream.copyTo(output)
+                        }
+                        thumbnailState.value = TextFieldValue(tempFile.absolutePath)
+                    } else {
+                        viewModel.setError("Unable to read selected thumbnail")
+                    }
+                } catch (e: Exception) {
+                    viewModel.setError("Failed to process thumbnail (${e.message})")
+                }
+            }
+        }
+    }
 
     val pickVideoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -148,6 +172,14 @@ fun MovieFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.size(12.dp))
+            Button(
+                onClick = { pickThumbnailLauncher.launch("image/*") },
+                enabled = !isLoading.value,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Pick thumbnail from device")
+            }
+            Spacer(Modifier.size(12.dp))
             if (!isEdit) {
                 OutlinedTextField(
                     value = videoState.value,
@@ -220,11 +252,28 @@ fun MovieFormScreen(
                 Button(
                     onClick = {
                         val path = videoState.value.text
-                        if (path.isNotBlank()) {
-                            scope.launch {
-                                didSubmit.value = true
-                                viewModel.uploadMovieFile(path)
-                            }
+                        val genreValue = genreState.value.text.toIntOrNull()
+                        if (nameState.value.text.isBlank()) {
+                            viewModel.setError("Title cannot be empty")
+                            return@Button
+                        }
+                        if (path.isBlank()) {
+                            viewModel.setError("Video path cannot be empty")
+                            return@Button
+                        }
+                        scope.launch {
+                            didSubmit.value = true
+                            // Save metadata then upload the file in one go
+                            viewModel.uploadMovie(
+                                Movie(
+                                    name = nameState.value.text.trim(),
+                                    description = descriptionState.value.text.trim(),
+                                    genre = genreValue ?: 0,
+                                    thumbnailPath = thumbnailState.value.text.trim(),
+                                    videoPath = path.trim()
+                                )
+                            )
+                            viewModel.uploadMovieFile(path)
                         }
                     },
                     enabled = !isLoading.value,
@@ -233,7 +282,7 @@ fun MovieFormScreen(
                     if (isLoading.value) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp))
                     } else {
-                        Text("Upload video file (process on server)")
+                        Text("Save & upload film")
                     }
                 }
             }

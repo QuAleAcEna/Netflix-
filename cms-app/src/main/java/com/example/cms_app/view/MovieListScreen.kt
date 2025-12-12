@@ -63,7 +63,16 @@ fun MovieListScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("CMS - Movies (upload + low-res)") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Movies") },
+                actions = {
+                    IconButton(onClick = onCreateMovie) {
+                        Icon(Icons.Default.Add, contentDescription = "Upload movie")
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = onCreateMovie) {
                 Icon(Icons.Default.Add, contentDescription = "Upload movie")
