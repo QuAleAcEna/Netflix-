@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -23,6 +25,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -62,6 +66,7 @@ import androidx.navigation.NavController
 import com.example.netflix.R
 import com.example.netflix.model.CreateProfileRequest
 import com.example.netflix.model.Profile
+import com.example.netflix.model.UpdateProfileRequest
 import com.example.netflix.network.RetrofitInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -83,6 +88,13 @@ fun ProfileSelectionScreen(
     var nameError by remember { mutableStateOf<String?>(null) }
     var isLoadingProfiles by remember { mutableStateOf(false) }
     var isSavingProfile by remember { mutableStateOf(false) }
+    var isUpdatingProfile by remember { mutableStateOf(false) }
+    var isDeletingProfile by remember { mutableStateOf(false) }
+    var profileToEdit by remember { mutableStateOf<Profile?>(null) }
+    var profileToDelete by remember { mutableStateOf<Profile?>(null) }
+    var editName by remember { mutableStateOf("") }
+    var editColor by remember { mutableStateOf("#E50914") }
+    var editKids by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -231,6 +243,172 @@ fun ProfileSelectionScreen(
         )
     }
 
+    if (profileToEdit != null) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isUpdatingProfile) {
+                    profileToEdit = null
+                    nameError = null
+                }
+            },
+            title = { Text(text = "Editar perfil") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = {
+                            editName = it
+                            if (nameError != null) nameError = null
+                        },
+                        label = { Text("Nome") },
+                        singleLine = true,
+                        isError = nameError != null
+                    )
+                    if (nameError != null) {
+                        Text(
+                            text = nameError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Cor do avatar", color = Color.White)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        avatarPalette.forEach { hex ->
+                            val swatchColor = try {
+                                Color(AndroidColor.parseColor(hex))
+                            } catch (_: IllegalArgumentException) {
+                                Color(0xFFE50914)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(swatchColor)
+                                    .clickable { editColor = hex }
+                                    .border(
+                                        width = if (editColor == hex) 2.dp else 0.dp,
+                                        color = Color.White,
+                                        shape = CircleShape
+                                    )
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Perfil infantil")
+                        Spacer(modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = editKids,
+                            onCheckedChange = { editKids = it }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isUpdatingProfile,
+                    onClick = {
+                        val trimmedName = editName.trim()
+                        if (trimmedName.isEmpty()) {
+                            nameError = "O nome não pode estar vazio"
+                            return@TextButton
+                        }
+                        profileToEdit?.let { profile ->
+                            coroutineScope.launch {
+                                isUpdatingProfile = true
+                                try {
+                                    val response = withContext(Dispatchers.IO) {
+                                        RetrofitInstance.api.updateProfile(
+                                            profile.id,
+                                            UpdateProfileRequest(
+                                                name = trimmedName,
+                                                avatarColor = editColor,
+                                                kids = editKids
+                                            )
+                                        )
+                                    }
+                                    if (response.isSuccessful) {
+                                        response.body()?.let { updated ->
+                                            val index = profiles.indexOfFirst { it.id == updated.id }
+                                            if (index >= 0) {
+                                                profiles[index] = updated
+                                            }
+                                            snackbarHostState.showSnackbar("Perfil atualizado.")
+                                        }
+                                        profileToEdit = null
+                                        nameError = null
+                                    } else {
+                                        snackbarHostState.showSnackbar("Não foi possível atualizar (${response.code()}).")
+                                    }
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("Erro ao atualizar o perfil.")
+                                } finally {
+                                    isUpdatingProfile = false
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text(if (isUpdatingProfile) "A guardar..." else "Guardar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { if (!isUpdatingProfile) profileToEdit = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (profileToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { if (!isDeletingProfile) profileToDelete = null },
+            title = { Text("Apagar perfil?") },
+            text = { Text("Esta ação remove o perfil e o progresso associado.") },
+            confirmButton = {
+                TextButton(
+                    enabled = !isDeletingProfile,
+                    onClick = {
+                        profileToDelete?.let { profile ->
+                            coroutineScope.launch {
+                                isDeletingProfile = true
+                                try {
+                                    val response = withContext(Dispatchers.IO) {
+                                        RetrofitInstance.api.deleteProfile(profile.id)
+                                    }
+                                    if (response.isSuccessful) {
+                                        profiles.removeAll { it.id == profile.id }
+                                        snackbarHostState.showSnackbar("Perfil removido.")
+                                    } else {
+                                        snackbarHostState.showSnackbar("Não foi possível apagar (${response.code()}).")
+                                    }
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("Erro ao apagar o perfil.")
+                                } finally {
+                                    isDeletingProfile = false
+                                    profileToDelete = null
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text(if (isDeletingProfile) "A apagar..." else "Apagar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { if (!isDeletingProfile) profileToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.background_wavy),
@@ -348,7 +526,15 @@ fun ProfileSelectionScreen(
                                         navController.navigate(
                                             "home/${profile.userId}/$accountSegment/${profile.id}/$encodedName"
                                         )
-                                    }
+                                    },
+                                    onEdit = {
+                                        profileToEdit = profile
+                                        editName = profile.name
+                                        editColor = profile.avatarColor
+                                        editKids = profile.kids
+                                        nameError = null
+                                    },
+                                    onDelete = { profileToDelete = profile }
                                 )
                             }
 
@@ -366,7 +552,12 @@ fun ProfileSelectionScreen(
 }
 
 @Composable
-private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
+private fun ProfileCard(
+    profile: Profile,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     val color = remember(profile.avatarColor) {
         try {
             Color(AndroidColor.parseColor(profile.avatarColor))
@@ -376,9 +567,7 @@ private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = Color.Black.copy(alpha = 0.6f)
         ),
@@ -386,14 +575,28 @@ private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .padding(vertical = 24.dp)
+                .padding(vertical = 16.dp)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = Color.White)
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Apagar", tint = MaterialTheme.colorScheme.error)
+                }
+            }
             Box(
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(color)
+                    .clickable(onClick = onClick)
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -409,7 +612,8 @@ private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
                 text = profile.name,
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                modifier = Modifier.clickable(onClick = onClick)
             )
             if (profile.kids) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -420,6 +624,7 @@ private fun ProfileCard(profile: Profile, onClick: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
             }
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

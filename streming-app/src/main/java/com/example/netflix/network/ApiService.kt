@@ -6,11 +6,13 @@ import com.example.netflix.model.Profile
 import com.example.netflix.model.User
 import com.example.netflix.model.WatchProgress
 import com.example.netflix.model.WatchProgressRequest
+import com.example.netflix.model.UpdateProfileRequest
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface ApiService {
@@ -39,6 +41,17 @@ interface ApiService {
     suspend fun createProfile(
         @Body request: CreateProfileRequest
     ): Response<Profile>
+
+    @PUT("profile/{id}")
+    suspend fun updateProfile(
+        @Path("id") id: Int,
+        @Body request: UpdateProfileRequest
+    ): Response<Profile>
+
+    @DELETE("profile/{id}")
+    suspend fun deleteProfile(
+        @Path("id") id: Int
+    ): Response<Unit>
 
     @GET("progress/profile/{profileId}")
     suspend fun getProfileProgress(

@@ -14,6 +14,8 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -28,6 +30,12 @@ public class Profiles implements endpoint {
 
     public ProfilePayload() {
     }
+  }
+
+  public static class UpdateProfilePayload {
+    public String name;
+    public String avatarColor;
+    public Boolean kids;
   }
 
   @GET
@@ -106,5 +114,65 @@ public class Profiles implements endpoint {
 
     return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Profile created but not retrievable")
         .type(MediaType.TEXT_PLAIN).build();
+  }
+
+  @PUT
+  @Path("/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response updateProfile(@PathParam("id") int id, UpdateProfilePayload payload) {
+    if (payload == null) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("Invalid payload").type(MediaType.TEXT_PLAIN).build();
+    }
+
+    String[] args = { Integer.toString(id) };
+    ResultSet existing = Mariadb.queryDB("SELECT * FROM PROFILE WHERE id = ?", args);
+    try {
+      if (existing == null || !existing.next()) {
+        return Response.status(Response.Status.NOT_FOUND).entity("Profile not found").type(MediaType.TEXT_PLAIN).build();
+      }
+      String currentName = existing.getString("name");
+      String currentColor = existing.getString("avatarColor");
+      boolean currentKids = existing.getBoolean("kids");
+
+      String trimmedName = payload.name == null ? currentName : payload.name.trim();
+      if (trimmedName.isEmpty()) {
+        return Response.status(Response.Status.BAD_REQUEST).entity("Profile name is required")
+            .type(MediaType.TEXT_PLAIN).build();
+      }
+      String color = (payload.avatarColor == null || payload.avatarColor.trim().isEmpty())
+          ? currentColor
+          : payload.avatarColor.trim();
+      boolean kids = payload.kids == null ? currentKids : payload.kids;
+
+      String[] updateArgs = { trimmedName, color, kids ? "1" : "0", Integer.toString(id) };
+      Mariadb.execute("UPDATE PROFILE SET name = ?, avatarColor = ?, kids = ? WHERE id = ?", updateArgs);
+
+      Profile profile =
+          new Profile(id, existing.getInt("userId"), trimmedName, color, kids);
+      return Response.ok(profile).build();
+    } catch (SQLException se) {
+      se.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Unable to update profile")
+          .type(MediaType.TEXT_PLAIN).build();
+    }
+  }
+
+  @DELETE
+  @Path("/{id}")
+  public Response deleteProfile(@PathParam("id") int id) {
+    String[] args = { Integer.toString(id) };
+    ResultSet existing = Mariadb.queryDB("SELECT id FROM PROFILE WHERE id = ?", args);
+    try {
+      if (existing == null || !existing.next()) {
+        return Response.status(Response.Status.NOT_FOUND).entity("Profile not found").type(MediaType.TEXT_PLAIN).build();
+      }
+      Mariadb.execute("DELETE FROM PROFILE WHERE id = ?", args);
+      return Response.noContent().build();
+    } catch (SQLException se) {
+      se.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Unable to delete profile")
+          .type(MediaType.TEXT_PLAIN).build();
+    }
   }
 }
