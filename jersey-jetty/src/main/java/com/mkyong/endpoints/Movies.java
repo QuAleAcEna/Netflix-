@@ -129,9 +129,23 @@ public class Movies implements endpoint {
   @Path("/{id}")
   public Response deleteMovie(@PathParam("id") int id) {
     String[] args = { Integer.toString(id) };
-    ResultSet movie = Mariadb.queryDB("SELECT id FROM MOVIE WHERE id = ?", args);
+    ResultSet movie = Mariadb.queryDB("SELECT id, name, videoPath, thumbnailPath FROM MOVIE WHERE id = ?", args);
     try {
       if (movie != null && movie.next()) {
+        String videoPath = movie.getString("videoPath");
+        String thumbnailPath = movie.getString("thumbnailPath");
+        // Attempt to delete associated objects in the bucket
+        GCSHelper.deleteObject(thumbnailPath);
+        if (videoPath != null) {
+          if (videoPath.contains("videos/") && !videoPath.endsWith(".mp4")) {
+            // Likely a folder path like videos/<name>; try common resolutions
+            String base = videoPath.replaceFirst("https://storage.googleapis.com/[^/]+/", "");
+            GCSHelper.deleteObject(base + "/360.mp4");
+            GCSHelper.deleteObject(base + "/1080.mp4");
+          } else {
+            GCSHelper.deleteObject(videoPath);
+          }
+        }
         Mariadb.execute("DELETE FROM MOVIE WHERE id = ?", args);
         System.out.println("Deleted movie id=" + id);
       } else {
