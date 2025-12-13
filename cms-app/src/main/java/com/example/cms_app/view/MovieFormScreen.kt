@@ -268,19 +268,22 @@ fun MovieFormScreen(
                             viewModel.setError("Video path cannot be empty")
                             return@Button
                         }
+                        // Sanitize movie name for server-side filenames/paths
+                        val safeName = nameState.value.text.trim().replace("[^A-Za-z0-9._-]".toRegex(), "_")
                         scope.launch {
                             didSubmit.value = true
-                            // Save metadata then upload the file in one go
+                            // Save metadata using server-friendly video/thumbnail paths
                             viewModel.uploadMovie(
                                 Movie(
                                     name = nameState.value.text.trim(),
                                     description = descriptionState.value.text.trim(),
                                     genre = genreValue ?: 0,
                                     thumbnailPath = thumbnailState.value.text.trim(),
-                                    videoPath = path.trim()
+                                    videoPath = "movie/$safeName"
                                 )
                             )
-                            viewModel.uploadMovieFile(path)
+                            // Upload the actual video file with a consistent filename
+                            viewModel.uploadMovieFile(path, safeName)
                         }
                     },
                     enabled = !isLoading.value,

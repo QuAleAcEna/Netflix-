@@ -52,7 +52,7 @@ class MovieViewModel(
         }
     }
 
-    fun uploadMovieFile(filePath: String) {
+    fun uploadMovieFile(filePath: String, movieName: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -62,7 +62,7 @@ class MovieViewModel(
                     _error.value = "File not found at $filePath"
                     _lastOperationSucceeded.value = false
                 } else {
-                    val response = repository.uploadMovieFile(file)
+                    val response = repository.uploadMovieFile(file, movieName)
                     if (response.isSuccessful) {
                         _lastOperationSucceeded.value = true
                         loadMovies()

@@ -91,13 +91,25 @@ public class Movies implements endpoint {
       System.out.println("Create movie failed checking existing for " + name);
     }
 
+    // Normalize local/device paths into service-friendly defaults
+    String normalizedVideoPath = request.videoPath;
+    if (normalizedVideoPath.startsWith("./") || normalizedVideoPath.startsWith("/data")
+        || normalizedVideoPath.startsWith("/storage") || normalizedVideoPath.startsWith("/sdcard")) {
+      normalizedVideoPath = String.format("movie/%s", name);
+    }
+    String normalizedThumbnailPath = request.thumbnailPath;
+    if (normalizedThumbnailPath.startsWith("./") || normalizedThumbnailPath.startsWith("/data")
+        || normalizedThumbnailPath.startsWith("/storage") || normalizedThumbnailPath.startsWith("/sdcard")) {
+      normalizedThumbnailPath = String.format("movie/thumbnails/%s", name);
+    }
+
     String[] args = {
         name,
         request.description != null ? request.description : "",
         request.genre != null ? Integer.toString(request.genre) : null,
         request.year != null ? Integer.toString(request.year) : null,
-        request.videoPath,
-        request.thumbnailPath
+        normalizedVideoPath,
+        normalizedThumbnailPath
     };
     Integer newId = Mariadb.insertAndReturnId(
         "INSERT INTO MOVIE(name,description,genre,year,videoPath,thumbnailPath) VALUES(?,?,?,?,?,?)", args);
@@ -109,7 +121,7 @@ public class Movies implements endpoint {
     Movie movie = new Movie(newId, name, request.description != null ? request.description : "",
         request.genre != null ? request.genre : 0,
         request.year != null ? request.year : 0,
-        request.videoPath, request.thumbnailPath);
+        normalizedVideoPath, normalizedThumbnailPath);
     return Response.ok(movie).build();
   }
 

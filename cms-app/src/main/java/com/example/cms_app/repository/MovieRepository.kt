@@ -29,9 +29,10 @@ class MovieRepository {
 
     suspend fun deleteMovie(id: Int) = api.deleteMovie(id)
 
-    suspend fun uploadMovieFile(file: File): Response<Unit> {
+    suspend fun uploadMovieFile(file: File, movieName: String): Response<Unit> {
         val requestFile = file.asRequestBody("video/mp4".toMediaTypeOrNull())
-        val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+        // Use movie name as filename so the backend stores consistent paths
+        val body = MultipartBody.Part.createFormData("file", "$movieName.mp4", requestFile)
         return api.uploadMovieFile(body)
     }
 
