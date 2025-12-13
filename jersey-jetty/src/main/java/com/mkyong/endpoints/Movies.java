@@ -9,6 +9,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -38,6 +39,12 @@ public class Movies implements endpoint {
     public Integer genre;
     public Integer year;
     public String videoPath;
+    public String thumbnailPath;
+  }
+  public static class UpdateMovieRequest {
+    public String name;
+    public String description;
+    public Integer genre;
     public String thumbnailPath;
   }
 
@@ -122,6 +129,68 @@ public class Movies implements endpoint {
       System.out.println("Delete movie failed for id=" + id);
     }
     return Response.noContent().build();
+  }
+
+  @PUT
+  @Path("/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response updateMovie(@PathParam("id") int id, UpdateMovieRequest request) {
+    String[] args = { Integer.toString(id) };
+    ResultSet existing = Mariadb.queryDB("SELECT * FROM MOVIE WHERE id = ?", args);
+    try {
+      if (existing == null || !existing.next()) {
+        return Response.status(Response.Status.NOT_FOUND).entity("Movie not found").build();
+      }
+      String currentName = existing.getString("name");
+      String currentDescription = existing.getString("description");
+      Integer currentGenre = existing.getInt("genre");
+      if (existing.wasNull()) currentGenre = null;
+      Integer currentYear = existing.getInt("year");
+      if (existing.wasNull()) currentYear = 0;
+      String currentVideoPath = existing.getString("videoPath");
+      String currentThumbnailPath = existing.getString("thumbnailPath");
+
+      if (request == null) {
+        return Response.status(Response.Status.BAD_REQUEST).entity("Missing body").build();
+      }
+
+      String newName = request.name != null ? request.name.trim() : currentName;
+      String newDescription = request.description != null ? request.description.trim() : currentDescription;
+      Integer newGenre = request.genre != null ? request.genre : currentGenre;
+      String newThumbnailPath = request.thumbnailPath != null ? request.thumbnailPath.trim() : currentThumbnailPath;
+
+      if (newName == null || newName.isEmpty()) {
+        return Response.status(Response.Status.BAD_REQUEST).entity("Name cannot be empty").build();
+      }
+      if (newThumbnailPath == null || newThumbnailPath.isEmpty()) {
+        return Response.status(Response.Status.BAD_REQUEST).entity("Thumbnail path cannot be empty").build();
+      }
+
+      // Normalize paths similar to createMovie
+      if (newThumbnailPath.startsWith("./") || newThumbnailPath.startsWith("/data")
+          || newThumbnailPath.startsWith("/storage") || newThumbnailPath.startsWith("/sdcard")) {
+        newThumbnailPath = String.format("movie/thumbnails/%s", newName);
+      }
+
+      String[] updateArgs = {
+          newName,
+          newDescription != null ? newDescription : "",
+          newGenre != null ? Integer.toString(newGenre) : null,
+          newThumbnailPath,
+          Integer.toString(id)
+      };
+      Mariadb.execute("UPDATE MOVIE SET name = ?, description = ?, genre = ?, thumbnailPath = ? WHERE id = ?",
+          updateArgs);
+      Movie movie = new Movie(id, newName, newDescription != null ? newDescription : "",
+          newGenre != null ? newGenre : 0,
+          currentYear != null ? currentYear : 0, currentVideoPath, newThumbnailPath);
+      System.out.println("Updated movie id=" + id + " name=" + newName);
+      return Response.ok(movie).build();
+    } catch (SQLException e) {
+      System.out.println("Update movie failed for id=" + id);
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Server error").build();
+    }
   }
 
   @GET
