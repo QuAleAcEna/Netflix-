@@ -175,7 +175,7 @@ fun MovieFormScreen(
             OutlinedTextField(
                 value = thumbnailState.value,
                 onValueChange = { thumbnailState.value = it },
-                label = { Text("Thumbnail path") },
+                label = { Text("Thumbnail path (leave empty for default)") },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.size(12.dp))
