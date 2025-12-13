@@ -13,6 +13,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
@@ -44,6 +46,42 @@ public class UploadService implements endpoint {
 
     return Response.status(200).build();
 
+  }
+
+  @POST
+  @Path("/upload-thumbnail")
+  @Consumes(MediaType.MULTIPART_FORM_DATA)
+  public Response uploadThumbnail(
+      @FormDataParam("file") InputStream uploadedInputStream,
+      @FormDataParam("file") FormDataContentDisposition fileDetail,
+      @FormDataParam("movieName") String movieName) {
+    if (uploadedInputStream == null || fileDetail == null) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("Missing file").build();
+    }
+    String originalName = fileDetail.getFileName();
+    if (originalName == null || originalName.trim().isEmpty()) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("Invalid file name").build();
+    }
+    try {
+      File tempFile = File.createTempFile("thumb_", "_" + originalName);
+      Files.copy(uploadedInputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      String safeMovieName = (movieName != null && !movieName.trim().isEmpty())
+          ? movieName.trim()
+          : tempFile.getName().replace(".png", "").replace(".jpg", "");
+      String objectName = "thumbnails/" + safeMovieName + ".png";
+      String contentType = Files.probeContentType(tempFile.toPath());
+      if (contentType == null || contentType.isEmpty()) {
+        contentType = "image/png";
+      }
+      GCSHelper.upload(objectName, tempFile, contentType);
+      String publicUrl = GCSHelper.getPublicUrl(objectName);
+      tempFile.delete();
+      return Response.ok(publicUrl).type(MediaType.TEXT_PLAIN).build();
+    } catch (IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("Failed to upload thumbnail: " + e.getMessage()).build();
+    }
   }
 
   private void addVideoToDB(String movieName) {

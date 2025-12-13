@@ -48,6 +48,7 @@ fun MovieFormScreen(
     val error = viewModel.error.collectAsState()
     val isLoading = viewModel.isLoading.collectAsState()
     val lastOperationSucceeded = viewModel.lastOperationSucceeded.collectAsState()
+    val uploadedThumbnailUrl = viewModel.uploadedThumbnailUrl.collectAsState()
     val isEdit = movieId != -1
     val didSubmit = remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -71,7 +72,8 @@ fun MovieFormScreen(
                         tempFile.outputStream().use { output ->
                             inputStream.copyTo(output)
                         }
-                        thumbnailState.value = TextFieldValue(tempFile.absolutePath)
+                        val movieName = nameState.value.text.ifBlank { "thumbnail" }
+                        viewModel.uploadThumbnailFile(tempFile.absolutePath, movieName)
                     } else {
                         viewModel.setError("Unable to read selected thumbnail")
                     }
@@ -117,6 +119,11 @@ fun MovieFormScreen(
             genreState.value = TextFieldValue(existing.genre.toString())
             thumbnailState.value = TextFieldValue(existing.thumbnailPath)
             videoState.value = TextFieldValue(existing.videoPath)
+        }
+    }
+    LaunchedEffect(uploadedThumbnailUrl.value) {
+        uploadedThumbnailUrl.value?.let { url ->
+            thumbnailState.value = TextFieldValue(url)
         }
     }
     LaunchedEffect(lastOperationSucceeded.value, isLoading.value, didSubmit.value) {

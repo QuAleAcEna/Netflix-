@@ -7,6 +7,7 @@ import retrofit2.Response
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 
 class MovieRepository {
@@ -32,5 +33,12 @@ class MovieRepository {
         val requestFile = file.asRequestBody("video/mp4".toMediaTypeOrNull())
         val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
         return api.uploadMovieFile(body)
+    }
+
+    suspend fun uploadThumbnailFile(file: File, movieName: String): Response<String> {
+        val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+        val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+        val namePart = movieName.toRequestBody("text/plain".toMediaTypeOrNull())
+        return api.uploadThumbnailFile(body, namePart)
     }
 }
