@@ -27,8 +27,8 @@ class MovieViewModel : ViewModel() {
             if (response.isSuccessful) {
                 _movies.value = response.body() ?: emptyList()
                 for(movie in _movies.value){
-                    movie.videoPath = BASE_URL + movie.videoPath;
-                    movie.thumbnailPath= BASE_URL + movie.thumbnailPath  ;
+                    movie.videoPath = BASE_URL +"movie/"+ movie.name;
+                    movie.thumbnailPath= BASE_URL+"movie/thumbnails/" + movie.name  ;
                 }
             }
             _isRefreshing.value = false

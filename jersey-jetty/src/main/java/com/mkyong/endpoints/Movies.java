@@ -143,16 +143,8 @@ public class Movies implements endpoint {
         String thumbnailPath = movie.getString("thumbnailPath");
         // Attempt to delete associated objects in the bucket
         GCSHelper.deleteObject(thumbnailPath);
-        if (videoPath != null) {
-          if (videoPath.contains("videos/") && !videoPath.endsWith(".mp4")) {
-            // Likely a folder path like videos/<name>; try common resolutions
-            String base = videoPath.replaceFirst("https://storage.googleapis.com/[^/]+/", "");
-            GCSHelper.deleteObject(base + "/360.mp4");
-            GCSHelper.deleteObject(base + "/1080.mp4");
-          } else {
-            GCSHelper.deleteObject(videoPath);
-          }
-        }
+        GCSHelper.deleteObject(videoPath+"360.mp4");
+        GCSHelper.deleteObject(videoPath+"1080.mp4");
         Mariadb.execute("DELETE FROM MOVIE WHERE id = ?", args);
         System.out.println("Deleted movie id=" + id);
       } else {

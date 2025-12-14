@@ -106,6 +106,7 @@ public class GCSHelper {
     ReadChannel reader = blob.reader();
     reader.seek(start);
     InputStream inputStream = Channels.newInputStream(reader);
+    
 
     StreamingOutput stream = output -> {
       byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
@@ -119,11 +120,19 @@ public class GCSHelper {
       inputStream.close();
     };
 
-    return Response.ok(stream, "video/mp4")
-        .status(rangeHeader != null ? Response.Status.PARTIAL_CONTENT : Response.Status.OK)
+    if(rangeHeader != null){
+      return Response.ok(stream, "video/mp4")
+        .status(Response.Status.PARTIAL_CONTENT)
         .header("Accept-Ranges", "bytes")
         .header("Content-Length", contentLength)
         .header("Content-Range", String.format("bytes %d-%d/%d", start, end, blobSize))
+        .build();
+    }
+
+    return Response.ok(stream, "video/mp4")
+        .status(Response.Status.OK)
+        .header("Accept-Ranges", "bytes")
+        .header("Content-Length", contentLength)
         .build();
   }
 
