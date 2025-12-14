@@ -24,6 +24,8 @@ class MovieViewModel(
     val error: StateFlow<String?> = _error
     private val _lastOperationSucceeded = MutableStateFlow(false)
     val lastOperationSucceeded: StateFlow<Boolean> = _lastOperationSucceeded
+    private val _uploadedThumbnailUrl = MutableStateFlow<String?>(null)
+    val uploadedThumbnailUrl: StateFlow<String?> = _uploadedThumbnailUrl
 
     fun setError(message: String) {
         _error.value = message
@@ -50,7 +52,7 @@ class MovieViewModel(
         }
     }
 
-    fun uploadMovieFile(filePath: String) {
+    fun uploadMovieFile(filePath: String, movieName: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -60,7 +62,7 @@ class MovieViewModel(
                     _error.value = "File not found at $filePath"
                     _lastOperationSucceeded.value = false
                 } else {
-                    val response = repository.uploadMovieFile(file)
+                    val response = repository.uploadMovieFile(file, movieName)
                     if (response.isSuccessful) {
                         _lastOperationSucceeded.value = true
                         loadMovies()
@@ -118,6 +120,33 @@ class MovieViewModel(
                 }
             } catch (e: Exception) {
                 _error.value = "Failed to update movie (${e.message})"
+                _lastOperationSucceeded.value = false
+            }
+            _isLoading.value = false
+        }
+    }
+
+    fun uploadThumbnailFile(filePath: String, movieName: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val file = File(filePath)
+                if (!file.exists()) {
+                    _error.value = "Thumbnail not found at $filePath"
+                    _lastOperationSucceeded.value = false
+                } else {
+                    val response = repository.uploadThumbnailFile(file, movieName)
+                    if (response.isSuccessful) {
+                        _uploadedThumbnailUrl.value = response.body()
+                        _lastOperationSucceeded.value = true
+                    } else {
+                        _error.value = "Failed to upload thumbnail (${response.code()})"
+                        _lastOperationSucceeded.value = false
+                    }
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to upload thumbnail (${e.message})"
                 _lastOperationSucceeded.value = false
             }
             _isLoading.value = false

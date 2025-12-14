@@ -41,6 +41,20 @@ public class GCSHelper {
     return String.format("https://storage.googleapis.com/%s/%s", bucketName, objectName);
   }
 
+  public static void deleteObject(String objectPath) {
+    if (objectPath == null || objectPath.trim().isEmpty()) {
+      return;
+    }
+    String normalized = objectPath.trim()
+        .replaceFirst("https://storage.googleapis.com/" + bucketName + "/", "")
+        .replaceFirst("gs://" + bucketName + "/", "");
+    try {
+      storage.delete(BlobId.of(bucketName, normalized));
+    } catch (Exception ignored) {
+      // Swallow to avoid failing delete flow if object is missing
+    }
+  }
+
   static public InputStream getGcsFileStream(String bucketName, String objectName) {
     Storage storage = StorageOptions.getDefaultInstance().getService();
     Blob blob = storage.get(BlobId.of(bucketName, objectName));
