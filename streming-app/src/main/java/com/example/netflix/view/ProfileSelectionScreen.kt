@@ -87,7 +87,7 @@ fun ProfileSelectionScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var newProfileName by remember { mutableStateOf("") }
     var isKidsProfile by remember { mutableStateOf(false) }
-    val avatarOptions = listOf("😀", "😎", "🚀", "🎬", "🦊", "🐼", "🐧", "🐙", "🌟", "🔥")
+    val avatarOptions = listOf("seed1", "seed2", "seed3", "seed4", "seed5", "seed6", "seed7", "seed8")
     var selectedAvatarSeed by remember { mutableStateOf(avatarOptions.first()) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var isLoadingProfiles by remember { mutableStateOf(false) }
@@ -183,10 +183,15 @@ fun ProfileSelectionScreen(
                                     )
                                     .clickable { selectedAvatarSeed = seed }
                             ) {
-                                Text(
-                                    text = seed,
-                                    modifier = Modifier.align(Alignment.Center),
-                                    fontSize = MaterialTheme.typography.headlineMedium.fontSize
+                                val url = "https://api.multiavatar.com/${Uri.encode(seed)}.png"
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(url)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Avatar $seed",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
                         }
@@ -323,10 +328,15 @@ fun ProfileSelectionScreen(
                                     )
                                     .clickable { editAvatarSeed = seed }
                             ) {
-                                Text(
-                                    text = seed,
-                                    modifier = Modifier.align(Alignment.Center),
-                                    fontSize = MaterialTheme.typography.headlineMedium.fontSize
+                                val url = "https://api.multiavatar.com/${Uri.encode(seed)}.png"
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(url)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Avatar $seed",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
                         }
@@ -580,7 +590,7 @@ private fun ProfileCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val avatarSeed = profile.avatarColor.ifBlank { profile.name.ifBlank { "😀" } }
+    val avatarSeed = profile.avatarColor.ifBlank { profile.name.ifBlank { "seed1" } }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -614,10 +624,15 @@ private fun ProfileCard(
                     .clickable(onClick = onClick),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = avatarSeed,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = Color.White
+                val url = "https://api.multiavatar.com/${Uri.encode(avatarSeed)}.png"
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(url)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Avatar de ${profile.name}",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
