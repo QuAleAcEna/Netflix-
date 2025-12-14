@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
@@ -85,7 +86,11 @@ public class UploadService implements endpoint {
   }
 
   private void addVideoToDB(String movieName) {
-      Integer nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
+      Integer nextId;
+      try {
+          nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
+      } catch (SQLException ex) {
+      }
     String videoPath = GCSHelper.getPublicUrl(String.format("videos/%d", nextId));
     String thumbnailPath = GCSHelper.getPublicUrl(String.format("thumbnails/%d.png", nextId));
     String[] args = { movieName, videoPath, thumbnailPath, "aaa", "0", "0" };
@@ -144,7 +149,11 @@ public class UploadService implements endpoint {
       // String.format("./res/videos/%s/1080.mp4", movieName));
       System.out.println("High res video generated");
       
-      Integer nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
+      Integer nextId;
+        try {
+            nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
+        } catch (SQLException ex) {
+        }
       GCSHelper.upload("thumbnails/" + nextId.toString() + ".png", thumbFile, "image/png");
       GCSHelper.upload("videos/" + nextId.toString() + "/360.mp4", lowResFile, "video/mp4");
       GCSHelper.upload("videos/" + nextId.toString() + "/1080.mp4", highResFile, "video/mp4");
