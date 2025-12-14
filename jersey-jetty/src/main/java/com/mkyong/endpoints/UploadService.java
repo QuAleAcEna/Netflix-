@@ -86,10 +86,13 @@ public class UploadService implements endpoint {
   }
 
   private void addVideoToDB(String movieName) {
-      Integer nextId;
+      Integer nextId=0;
       try {
           nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
       } catch (SQLException ex) {
+      System.err.println("Unable to insert video to db");
+
+        return;
       }
     String videoPath = GCSHelper.getPublicUrl(String.format("videos/%d", nextId));
     String thumbnailPath = GCSHelper.getPublicUrl(String.format("thumbnails/%d.png", nextId));
@@ -149,10 +152,11 @@ public class UploadService implements endpoint {
       // String.format("./res/videos/%s/1080.mp4", movieName));
       System.out.println("High res video generated");
       
-      Integer nextId;
+      Integer nextId=0;
         try {
             nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
         } catch (SQLException ex) {
+          return false;
         }
       GCSHelper.upload("thumbnails/" + nextId.toString() + ".png", thumbFile, "image/png");
       GCSHelper.upload("videos/" + nextId.toString() + "/360.mp4", lowResFile, "video/mp4");
