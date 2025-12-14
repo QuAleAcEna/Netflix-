@@ -85,9 +85,9 @@ public class UploadService implements endpoint {
   }
 
   private void addVideoToDB(String movieName) {
-
-    String videoPath = GCSHelper.getPublicUrl(String.format("videos/%s", movieName));
-    String thumbnailPath = GCSHelper.getPublicUrl(String.format("thumbnails/%s", movieName));
+      Integer nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
+    String videoPath = GCSHelper.getPublicUrl(String.format("videos/%d", nextId));
+    String thumbnailPath = GCSHelper.getPublicUrl(String.format("thumbnails/%d.png", nextId));
     String[] args = { movieName, videoPath, thumbnailPath, "aaa", "0", "0" };
     if (Mariadb.insert("INSERT INTO MOVIE(name,videoPath,thumbnailPath,description,year,genre) VALUES(?,?,?,?,?,?)",
         args) == false) {
@@ -143,9 +143,11 @@ public class UploadService implements endpoint {
       // "-vf", "scale=1920:1080", "-c:a", "copy",
       // String.format("./res/videos/%s/1080.mp4", movieName));
       System.out.println("High res video generated");
-      GCSHelper.upload("thumbnails/" + movieName + ".png", thumbFile, "image/png");
-      GCSHelper.upload("videos/" + movieName + "/360.mp4", lowResFile, "video/mp4");
-      GCSHelper.upload("videos/" + movieName + "/1080.mp4", highResFile, "video/mp4");
+      
+      Integer nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
+      GCSHelper.upload("thumbnails/" + nextId.toString() + ".png", thumbFile, "image/png");
+      GCSHelper.upload("videos/" + nextId.toString() + "/360.mp4", lowResFile, "video/mp4");
+      GCSHelper.upload("videos/" + nextId.toString() + "/1080.mp4", highResFile, "video/mp4");
 
       thumbFile.delete();
       lowResFile.delete();

@@ -100,7 +100,7 @@ public class Movies implements endpoint {
     String normalizedThumbnailPath = request.thumbnailPath;
     if (normalizedThumbnailPath.startsWith("./") || normalizedThumbnailPath.startsWith("/data")
         || normalizedThumbnailPath.startsWith("/storage") || normalizedThumbnailPath.startsWith("/sdcard")) {
-      normalizedThumbnailPath = String.format("movie/thumbnails/%s", name);
+      normalizedThumbnailPath = String.format("movie/thumbnails/%s.png", name);
     }
 
     String[] args = {
@@ -229,11 +229,11 @@ public class Movies implements endpoint {
   }
 
   @GET
-  @Path("/thumbnails/{movieName}")
+  @Path("/thumbnails/{id}")
   @Produces("image/png")
-  public Response getThumbnail(@PathParam("movieName") String movieName) {
-    String[] arg = { movieName };
-    ResultSet result = Mariadb.queryDB("SELECT thumbnailPath FROM MOVIE WHERE name = ?", arg);
+  public Response getThumbnail(@PathParam("id") String id) {
+    String[] arg = { id };
+    ResultSet result = Mariadb.queryDB("SELECT thumbnailPath FROM MOVIE WHERE id = ?", arg);
 
     try {
       if (result.next() == false)
@@ -241,7 +241,6 @@ public class Movies implements endpoint {
             .build();
       String thumbnailPath;
       thumbnailPath = result.getString("thumbnailPath");
-      thumbnailPath = String.format("%s.png", thumbnailPath);
       return Response.seeOther(new java.net.URI(thumbnailPath)).build();
       // File file = new File(String.format("%s/%s.png", thumbnailPath, movieName));
       // return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM).build();
@@ -252,16 +251,16 @@ public class Movies implements endpoint {
   }
 
   @GET
-  @Path("/{videoName}/{resolution}")
+  @Path("/{id}/{resolution}")
   @Produces("video/mp4")
-  public Response streamVideo(@PathParam("videoName") String videoName, @PathParam("resolution") int resolution,
+  public Response streamVideo(@PathParam("id") Integer id, @PathParam("resolution") int resolution,
       @HeaderParam("Range") String range) {
     if (resolution != 1080 && resolution != 360)
       resolution = 1080;
     try {
       // Step 1: Get video path from DB
-      String[] arg = { videoName };
-      ResultSet result = Mariadb.queryDB("SELECT videoPath FROM MOVIE WHERE name = ?", arg);
+      String[] arg = { id.toString() };
+      ResultSet result = Mariadb.queryDB("SELECT videoPath FROM MOVIE WHERE id = ?", arg);
       if (!result.next()) {
         return Response.status(Response.Status.NOT_FOUND).entity("Video not found").build();
       }
