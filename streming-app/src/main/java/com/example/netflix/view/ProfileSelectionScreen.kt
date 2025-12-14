@@ -1,7 +1,4 @@
 package com.example.netflix.view
-
-import android.graphics.Color as AndroidColor
-import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -10,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -63,6 +61,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import android.net.Uri
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.netflix.R
 import com.example.netflix.model.CreateProfileRequest
 import com.example.netflix.model.Profile
@@ -71,6 +72,7 @@ import com.example.netflix.network.RetrofitInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
 
 private const val MAX_PROFILES = 5
 
@@ -85,6 +87,8 @@ fun ProfileSelectionScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var newProfileName by remember { mutableStateOf("") }
     var isKidsProfile by remember { mutableStateOf(false) }
+    val avatarOptions = listOf("😀", "😎", "🚀", "🎬", "🦊", "🐼", "🐧", "🐙", "🌟", "🔥")
+    var selectedAvatarSeed by remember { mutableStateOf(avatarOptions.first()) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var isLoadingProfiles by remember { mutableStateOf(false) }
     var isSavingProfile by remember { mutableStateOf(false) }
@@ -93,13 +97,13 @@ fun ProfileSelectionScreen(
     var profileToEdit by remember { mutableStateOf<Profile?>(null) }
     var profileToDelete by remember { mutableStateOf<Profile?>(null) }
     var editName by remember { mutableStateOf("") }
-    var editColor by remember { mutableStateOf("#E50914") }
+    var editAvatarSeed by remember { mutableStateOf(avatarOptions.first()) }
     var editKids by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    val avatarPalette = listOf("#E50914", "#B81D24", "#221F1F", "#5A0F27", "#0071EB")
+    val avatarSeeds = avatarOptions
 
     LaunchedEffect(userId) {
         if (userId <= 0) {
@@ -160,6 +164,34 @@ fun ProfileSelectionScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
+                    Text("Avatar", color = Color.White)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        avatarSeeds.forEach { seed ->
+                            val selected = selectedAvatarSeed == seed
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .border(
+                                        width = if (selected) 3.dp else 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
+                                        shape = CircleShape
+                                    )
+                                    .clickable { selectedAvatarSeed = seed }
+                            ) {
+                                Text(
+                                    text = seed,
+                                    modifier = Modifier.align(Alignment.Center),
+                                    fontSize = MaterialTheme.typography.headlineMedium.fontSize
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
@@ -187,14 +219,12 @@ fun ProfileSelectionScreen(
                                 coroutineScope.launch {
                                     isSavingProfile = true
                                     try {
-                                        val colorHex =
-                                            avatarPalette[profiles.size % avatarPalette.size]
                                         val response = withContext(Dispatchers.IO) {
                                             RetrofitInstance.api.createProfile(
                                                 CreateProfileRequest(
                                                     userId = userId,
                                                     name = trimmedName,
-                                                    avatarColor = colorHex,
+                                                    avatarColor = selectedAvatarSeed,
                                                     kids = isKidsProfile
                                                 )
                                             )
@@ -207,6 +237,7 @@ fun ProfileSelectionScreen(
                                             showAddDialog = false
                                             newProfileName = ""
                                             isKidsProfile = false
+                                            selectedAvatarSeed = avatarSeeds.first()
                                             nameError = null
                                         } else if (response.code() == 409) {
                                             nameError = "Esse nome já está a ser usado."
@@ -273,27 +304,31 @@ fun ProfileSelectionScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Cor do avatar", color = Color.White)
+                    Text("Avatar", color = Color.White)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        avatarPalette.forEach { hex ->
-                            val swatchColor = try {
-                                Color(AndroidColor.parseColor(hex))
-                            } catch (_: IllegalArgumentException) {
-                                Color(0xFFE50914)
-                            }
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        avatarSeeds.forEach { seed ->
+                            val selected = editAvatarSeed == seed
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(64.dp)
                                     .clip(CircleShape)
-                                    .background(swatchColor)
-                                    .clickable { editColor = hex }
                                     .border(
-                                        width = if (editColor == hex) 2.dp else 0.dp,
-                                        color = Color.White,
+                                        width = if (selected) 3.dp else 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
                                         shape = CircleShape
                                     )
-                            )
+                                    .clickable { editAvatarSeed = seed }
+                            ) {
+                                Text(
+                                    text = seed,
+                                    modifier = Modifier.align(Alignment.Center),
+                                    fontSize = MaterialTheme.typography.headlineMedium.fontSize
+                                )
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -324,11 +359,11 @@ fun ProfileSelectionScreen(
                                 isUpdatingProfile = true
                                 try {
                                     val response = withContext(Dispatchers.IO) {
-                                        RetrofitInstance.api.updateProfile(
-                                            profile.id,
-                                            UpdateProfileRequest(
-                                                name = trimmedName,
-                                                avatarColor = editColor,
+                                            RetrofitInstance.api.updateProfile(
+                                                profile.id,
+                                                UpdateProfileRequest(
+                                                    name = trimmedName,
+                                                avatarColor = editAvatarSeed,
                                                 kids = editKids
                                             )
                                         )
@@ -517,7 +552,7 @@ fun ProfileSelectionScreen(
                                     onEdit = {
                                         profileToEdit = profile
                                         editName = profile.name
-                                        editColor = profile.avatarColor
+                                        editAvatarSeed = profile.avatarColor.ifBlank { "seed1" }
                                         editKids = profile.kids
                                         nameError = null
                                     },
@@ -545,14 +580,7 @@ private fun ProfileCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val color = remember(profile.avatarColor) {
-        try {
-            Color(AndroidColor.parseColor(profile.avatarColor))
-        } catch (_: IllegalArgumentException) {
-            Color(0xFFE50914)
-        }
-    }
-
+    val avatarSeed = profile.avatarColor.ifBlank { profile.name.ifBlank { "😀" } }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -581,17 +609,15 @@ private fun ProfileCard(
             }
             Box(
                 modifier = Modifier
+                    .size(96.dp)
                     .clip(CircleShape)
-                    .background(color)
-                    .clickable(onClick = onClick)
-                    .padding(24.dp),
+                    .clickable(onClick = onClick),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = profile.name.first().uppercase(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    text = avatarSeed,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Color.White
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
