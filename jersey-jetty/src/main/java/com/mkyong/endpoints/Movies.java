@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.checkerframework.checker.units.qual.N;
 
 @Path("/movie")
 public class Movies implements endpoint {
@@ -102,6 +103,9 @@ public class Movies implements endpoint {
         || normalizedThumbnailPath.startsWith("/storage") || normalizedThumbnailPath.startsWith("/sdcard")) {
       normalizedThumbnailPath = String.format("thumbnails/%s.png", name);
     }
+    if(request.thumbnailPath == null){
+        normalizedThumbnailPath = GCSHelper.getPublicUrl("thumbnails/"+name+".png");
+    }
 
     String[] args = {
         name,
@@ -111,12 +115,15 @@ public class Movies implements endpoint {
         normalizedVideoPath,
         normalizedThumbnailPath
     };
+    
+      
     Integer newId = Mariadb.insertAndReturnId(
         "INSERT INTO MOVIE(name,description,genre,year,videoPath,thumbnailPath) VALUES(?,?,?,?,?,?)", args);
     if (newId == null) {
       System.out.println("Create movie failed (DB insert) for " + name);
       return Response.serverError().build();
     }
+
     System.out.println("Created movie id=" + newId + " name=" + name);
     Movie movie = new Movie(newId, name, request.description != null ? request.description : "",
         request.genre != null ? request.genre : 0,

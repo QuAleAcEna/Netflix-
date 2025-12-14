@@ -62,6 +62,8 @@ public class UploadService implements endpoint {
       String safeMovieName = (movieName != null && !movieName.trim().isEmpty())
           ? movieName.trim()
           : tempFile.getName().replace(".png", "").replace(".jpg", "");
+          
+        
       String objectName = "thumbnails/" + safeMovieName + ".png";
       String contentType = Files.probeContentType(tempFile.toPath());
       if (contentType == null || contentType.isEmpty()) {
@@ -145,23 +147,17 @@ public class UploadService implements endpoint {
       // String.format("./res/videos/%s/1080.mp4", movieName));
       System.out.println("High res video generated");
       
-      Integer nextId=0;
-        try {
-            nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
-        } catch (SQLException ex) {
-          return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity("Failed to upload video: " + ex.getMessage()).build();
-        }
-      GCSHelper.upload("thumbnails/" + nextId.toString() + ".png", thumbFile, "image/png");
-      GCSHelper.upload("videos/" + nextId.toString() + "/360.mp4", lowResFile, "video/mp4");
-      GCSHelper.upload("videos/" + nextId.toString() + "/1080.mp4", highResFile, "video/mp4");
+      
+      GCSHelper.upload("thumbnails/" + movieName + ".png", thumbFile, "image/png");
+      GCSHelper.upload("videos/" + movieName + "/360.mp4", lowResFile, "video/mp4");
+      GCSHelper.upload("videos/" + movieName + "/1080.mp4", highResFile, "video/mp4");
 
       thumbFile.delete();
       lowResFile.delete();
       highResFile.delete();
       File file = new File(uploadedFileLocation);
       file.delete();
-      return Response.ok(GCSHelper.getPublicUrl("videos/"+nextId.toString()+"/")).type(MediaType.TEXT_PLAIN).build();
+      return Response.ok(GCSHelper.getPublicUrl("videos/"+movieName+"/")).type(MediaType.TEXT_PLAIN).build();
 
     } catch (IOException e) {
       System.err.println("Unable to convert video");
