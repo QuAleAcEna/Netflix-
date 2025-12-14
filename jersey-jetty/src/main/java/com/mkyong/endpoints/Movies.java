@@ -142,7 +142,7 @@ public class Movies implements endpoint {
         String videoPath = movie.getString("videoPath");
         String thumbnailPath = movie.getString("thumbnailPath");
         // Attempt to delete associated objects in the bucket
-        GCSHelper.deleteObject(GCSHelper.getPublicUrl("thumbnails/"+movie.getString("name")+"/default.png"));
+        GCSHelper.deleteObject(GCSHelper.getPublicUrl("thumbnails/"+movie.getString("name").replace(" ", "_")+"/default.png"));
         GCSHelper.deleteObject(thumbnailPath);
         GCSHelper.deleteObject(videoPath+"360.mp4");
         GCSHelper.deleteObject(videoPath+"1080.mp4");
