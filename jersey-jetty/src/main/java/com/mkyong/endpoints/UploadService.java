@@ -51,7 +51,7 @@ public class UploadService implements endpoint {
     if (uploadedInputStream == null || fileDetail == null) {
       return Response.status(Response.Status.BAD_REQUEST).entity("Missing file").build();
     }
-    String originalName = fileDetail;
+    String originalName = fileDetail.getFileName();
     if (originalName == null || originalName.trim().isEmpty()) {
       return Response.status(Response.Status.BAD_REQUEST).entity("Invalid file name").build();
     }
