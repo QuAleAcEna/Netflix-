@@ -16,6 +16,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import org.checkerframework.checker.units.qual.N;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
@@ -37,16 +38,7 @@ public class UploadService implements endpoint {
 
     writeToFile(uploadedInputStream, uploadedFileLocation);
 
-    new Thread(() -> {
-
-      if (processVideo(uploadedFileLocation, movieName))
-        addVideoToDB(movieName);
-      else
-        System.out.println("Unable to upload");
-    }).start();
-
-    return Response.status(200).build();
-
+    return processVideo(uploadedFileLocation, movieName);
   }
 
   @POST
@@ -63,6 +55,7 @@ public class UploadService implements endpoint {
     if (originalName == null || originalName.trim().isEmpty()) {
       return Response.status(Response.Status.BAD_REQUEST).entity("Invalid file name").build();
     }
+    System.out.println("Uploading thumbnail");
     try {
       File tempFile = File.createTempFile("thumb_", "_" + originalName);
       Files.copy(uploadedInputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -106,7 +99,7 @@ public class UploadService implements endpoint {
 
   }
 
-  private boolean processVideo(String uploadedFileLocation, String movieName) {
+  private Response processVideo(String uploadedFileLocation, String movieName) {
     try {
       File videoDir = new File(System.getProperty("java.io.tmpdir"), movieName + "_videos");
       videoDir.mkdirs();
@@ -156,7 +149,8 @@ public class UploadService implements endpoint {
         try {
             nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
         } catch (SQLException ex) {
-          return false;
+          return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("Failed to upload video: " + ex.getMessage()).build();
         }
       GCSHelper.upload("thumbnails/" + nextId.toString() + ".png", thumbFile, "image/png");
       GCSHelper.upload("videos/" + nextId.toString() + "/360.mp4", lowResFile, "video/mp4");
@@ -167,16 +161,15 @@ public class UploadService implements endpoint {
       highResFile.delete();
       File file = new File(uploadedFileLocation);
       file.delete();
-      return true;
+      return Response.ok(GCSHelper.getPublicUrl("videos/"+nextId.toString()+"/")).type(MediaType.TEXT_PLAIN).build();
+
     } catch (IOException e) {
       System.err.println("Unable to convert video");
-      e.printStackTrace();
     } catch (InterruptedException e) {
-      e.printStackTrace();
     } finally {
       new File(uploadedFileLocation).delete();
     }
-    return false;
+    return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
 
   }
 

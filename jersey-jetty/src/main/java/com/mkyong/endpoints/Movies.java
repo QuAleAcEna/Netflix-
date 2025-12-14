@@ -95,12 +95,12 @@ public class Movies implements endpoint {
     String normalizedVideoPath = request.videoPath;
     if (normalizedVideoPath.startsWith("./") || normalizedVideoPath.startsWith("/data")
         || normalizedVideoPath.startsWith("/storage") || normalizedVideoPath.startsWith("/sdcard")) {
-      normalizedVideoPath = String.format("movie/%s", name);
+      normalizedVideoPath = String.format("videos/%s", name);
     }
     String normalizedThumbnailPath = request.thumbnailPath;
     if (normalizedThumbnailPath.startsWith("./") || normalizedThumbnailPath.startsWith("/data")
         || normalizedThumbnailPath.startsWith("/storage") || normalizedThumbnailPath.startsWith("/sdcard")) {
-      normalizedThumbnailPath = String.format("movie/thumbnails/%s.png", name);
+      normalizedThumbnailPath = String.format("thumbnails/%s.png", name);
     }
 
     String[] args = {
