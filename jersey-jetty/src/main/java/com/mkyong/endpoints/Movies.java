@@ -96,7 +96,7 @@ public class Movies implements endpoint {
     String normalizedVideoPath = request.videoPath;
     if (normalizedVideoPath.startsWith("./") || normalizedVideoPath.startsWith("/data")
         || normalizedVideoPath.startsWith("/storage") || normalizedVideoPath.startsWith("/sdcard")) {
-      normalizedVideoPath = String.format("videos/%s", name);
+      normalizedVideoPath = String.format("videos/%s/", name);
     }
     String normalizedThumbnailPath = request.thumbnailPath;
     if (normalizedThumbnailPath.startsWith("./") || normalizedThumbnailPath.startsWith("/data")
@@ -236,11 +236,11 @@ public class Movies implements endpoint {
   }
 
   @GET
-  @Path("/thumbnails/{id}")
+  @Path("/thumbnails/{videoName}")
   @Produces("image/png")
-  public Response getThumbnail(@PathParam("id") String id) {
-    String[] arg = { id };
-    ResultSet result = Mariadb.queryDB("SELECT thumbnailPath FROM MOVIE WHERE id = ?", arg);
+  public Response getThumbnail(@PathParam("videoName") String videoName) {
+    String[] arg = { videoName };
+    ResultSet result = Mariadb.queryDB("SELECT thumbnailPath FROM MOVIE WHERE name = ?", arg);
 
     try {
       if (result.next() == false)
@@ -258,16 +258,16 @@ public class Movies implements endpoint {
   }
 
   @GET
-  @Path("/{id}/{resolution}")
+  @Path("/{videoName}/{resolution}")
   @Produces("video/mp4")
-  public Response streamVideo(@PathParam("id") Integer id, @PathParam("resolution") int resolution,
+  public Response streamVideo(@PathParam("videoName") String videoName, @PathParam("resolution") int resolution,
       @HeaderParam("Range") String range) {
     if (resolution != 1080 && resolution != 360)
       resolution = 1080;
     try {
       // Step 1: Get video path from DB
-      String[] arg = { id.toString() };
-      ResultSet result = Mariadb.queryDB("SELECT videoPath FROM MOVIE WHERE id = ?", arg);
+      String[] arg = { videoName };
+      ResultSet result = Mariadb.queryDB("SELECT videoPath FROM MOVIE WHERE name = ?", arg);
       if (!result.next()) {
         return Response.status(Response.Status.NOT_FOUND).entity("Video not found").build();
       }
