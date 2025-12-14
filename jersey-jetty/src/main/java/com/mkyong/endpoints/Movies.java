@@ -103,7 +103,7 @@ public class Movies implements endpoint {
         || normalizedThumbnailPath.startsWith("/storage") || normalizedThumbnailPath.startsWith("/sdcard")) {
       normalizedThumbnailPath = String.format("thumbnails/%s.png", name);
     }
-    if(request.thumbnailPath == null){
+    if(request.thumbnailPath == ""){
         normalizedThumbnailPath = GCSHelper.getPublicUrl("thumbnails/"+name+".png");
     }
 
@@ -272,7 +272,7 @@ public class Movies implements endpoint {
         return Response.status(Response.Status.NOT_FOUND).entity("Video not found").build();
       }
       String videoPath = result.getString("videoPath");
-      videoPath = String.format("%s/%d.mp4", videoPath, resolution);
+      videoPath = String.format("%s%d.mp4", videoPath, resolution);
       return GCSHelper.streamFromGcs(videoPath, range);
 
     } catch (Exception e) {
