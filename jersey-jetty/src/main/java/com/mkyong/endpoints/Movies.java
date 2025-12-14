@@ -103,7 +103,7 @@ public class Movies implements endpoint {
         || normalizedThumbnailPath.startsWith("/storage") || normalizedThumbnailPath.startsWith("/sdcard")) {
       normalizedThumbnailPath = String.format("thumbnails/%s.png", name);
     }
-    if(request.thumbnailPath == ""){
+    if(request.thumbnailPath.isEmpty()){
         normalizedThumbnailPath = GCSHelper.getPublicUrl("thumbnails/"+name+".png");
     }
 

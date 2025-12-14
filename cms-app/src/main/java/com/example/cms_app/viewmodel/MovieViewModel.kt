@@ -102,7 +102,7 @@ class MovieViewModel(
                             finalThumbnailPath = responseBody
                         }
                     }
-                }
+                }else finalThumbnailPath = "";
 
                 // 2. Upload Video
                 val videoFile = File(videoPath)
