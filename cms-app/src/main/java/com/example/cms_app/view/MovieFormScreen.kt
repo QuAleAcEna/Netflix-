@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -55,7 +56,34 @@ fun MovieFormScreen(
     val existing = movies.value.find { it.id == movieId }
     val nameState = remember { mutableStateOf(TextFieldValue(existing?.name.orEmpty())) }
     val descriptionState = remember { mutableStateOf(TextFieldValue(existing?.description.orEmpty())) }
-    val genreState = remember { mutableStateOf(TextFieldValue(existing?.genre?.toString().orEmpty())) }
+    val genres = listOf(
+        "Action",
+        "Adventure",
+        "Animation",
+        "Comedy",
+        "Crime",
+        "Drama",
+        "Family",
+        "Fantasy",
+        "Historical",
+        "Horror",
+        "Musical",
+        "Mystery",
+        "Romance",
+        "Science Fiction",
+        "Sports",
+        "Thriller / Suspense",
+        "War",
+        "Western"
+    )
+    fun decodeGenres(mask: Int): Set<Int> {
+        val selected = mutableSetOf<Int>()
+        genres.indices.forEach { idx ->
+            if (mask and (1 shl idx) != 0) selected.add(idx)
+        }
+        return selected
+    }
+    val genreSelection = remember { mutableStateOf(decodeGenres(existing?.genre ?: 0)) }
     val thumbnailState = remember { mutableStateOf(TextFieldValue(existing?.thumbnailPath.orEmpty())) }
     val videoState = remember { mutableStateOf(TextFieldValue(existing?.videoPath.orEmpty())) }
     val scope = rememberCoroutineScope()
@@ -116,7 +144,7 @@ fun MovieFormScreen(
         if (existing != null) {
             nameState.value = TextFieldValue(existing.name)
             descriptionState.value = TextFieldValue(existing.description)
-            genreState.value = TextFieldValue(existing.genre.toString())
+            genreSelection.value = decodeGenres(existing.genre)
             thumbnailState.value = TextFieldValue(existing.thumbnailPath)
             videoState.value = TextFieldValue(existing.videoPath)
         }
@@ -165,12 +193,26 @@ fun MovieFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.size(12.dp))
-            OutlinedTextField(
-                value = genreState.value,
-                onValueChange = { genreState.value = it },
-                label = { Text("Genre (number)") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Text("Genres (select one or more)")
+            Spacer(Modifier.size(8.dp))
+            androidx.compose.foundation.layout.FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                genres.forEachIndexed { index, label ->
+                    val selected = genreSelection.value.contains(index)
+                    androidx.compose.material3.FilterChip(
+                        selected = selected,
+                        onClick = {
+                            val updated = genreSelection.value.toMutableSet()
+                            if (selected) updated.remove(index) else updated.add(index)
+                            genreSelection.value = updated.toSet()
+                        },
+                        label = { Text(label) }
+                    )
+                }
+            }
             Spacer(Modifier.size(12.dp))
             OutlinedTextField(
                 value = thumbnailState.value,
@@ -224,7 +266,7 @@ fun MovieFormScreen(
             if (isEdit) {
                 Button(
                     onClick = {
-                        val genreValue = genreState.value.text.toIntOrNull()
+                        val genreValue = genreSelection.value.fold(0) { acc, idx -> acc or (1 shl idx) }
                         if (nameState.value.text.isBlank()) {
                             viewModel.setError("Title cannot be empty")
                             return@Button
@@ -259,7 +301,7 @@ fun MovieFormScreen(
                 Button(
                     onClick = {
                         val path = videoState.value.text
-                        val genreValue = genreState.value.text.toIntOrNull()
+                        val genreValue = genreSelection.value.fold(0) { acc, idx -> acc or (1 shl idx) }
                         if (nameState.value.text.isBlank()) {
                             viewModel.setError("Title cannot be empty")
                             return@Button
@@ -277,7 +319,7 @@ fun MovieFormScreen(
                                 Movie(
                                     name = nameState.value.text.trim(),
                                     description = descriptionState.value.text.trim(),
-                                    genre = genreValue ?: 0,
+                                    genre = genreValue,
                                     thumbnailPath = thumbnailState.value.text.trim(),
                                     videoPath = "movie/$safeName"
                                 )

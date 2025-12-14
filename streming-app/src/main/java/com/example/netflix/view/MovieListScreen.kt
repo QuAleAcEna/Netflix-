@@ -586,14 +586,35 @@ fun MovieCard(movie: Movie, progressMs: Long, onClick: () -> Unit, onLongClick: 
 }
 
 fun getGenreName(genreId: Int): String {
-    return when (genreId) {
-        1 -> "Action"
-        2 -> "Comedy"
-        3 -> "Horror"
-        4 -> "Sci-Fi"
-        5 -> "Drama"
-        else -> "Unknown"
+    val genres = listOf(
+        "Action",
+        "Adventure",
+        "Animation",
+        "Comedy",
+        "Crime",
+        "Drama",
+        "Family",
+        "Fantasy",
+        "Historical",
+        "Horror",
+        "Musical",
+        "Mystery",
+        "Romance",
+        "Science Fiction",
+        "Sports",
+        "Thriller / Suspense",
+        "War",
+        "Western"
+    )
+    // Support both legacy single-id values and bitmask values
+    val isPowerOfTwo = genreId > 0 && (genreId and (genreId - 1)) == 0
+    if (isPowerOfTwo) {
+        val idx = Integer.numberOfTrailingZeros(genreId)
+        return genres.getOrElse(idx) { "Unknown" }
     }
+    if (genreId <= 0) return "Unknown"
+    val selected = genres.indices.filter { genreId and (1 shl it) != 0 }.map { genres[it] }
+    return if (selected.isNotEmpty()) selected.joinToString(", ") else "Unknown"
 }
 
 private fun formatPlaybackPosition(positionMs: Long): String {
