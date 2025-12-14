@@ -203,7 +203,7 @@ public class Movies implements endpoint {
       // Normalize paths similar to createMovie
       if (newThumbnailPath.startsWith("./") || newThumbnailPath.startsWith("/data")
           || newThumbnailPath.startsWith("/storage") || newThumbnailPath.startsWith("/sdcard")) {
-        newThumbnailPath = String.format("movie/thumbnails/%s", newName);
+        newThumbnailPath = String.format("thumbnails/%s", newName);
       }
 
       String[] updateArgs = {

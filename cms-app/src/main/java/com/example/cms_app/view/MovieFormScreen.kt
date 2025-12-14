@@ -303,32 +303,31 @@ fun MovieFormScreen(
             } else {
                 Button(
                     onClick = {
-                        val path = videoState.value.text
+                        val videoPath = videoState.value.text
+                        val thumbnailPath = thumbnailState.value.text
                         val genreValue = genreSelection.value.fold(0) { acc, idx -> acc or (1 shl idx) }
+                        
                         if (nameState.value.text.isBlank()) {
                             viewModel.setError("Title cannot be empty")
                             return@Button
                         }
-                        if (path.isBlank()) {
+                        if (videoPath.isBlank()) {
                             viewModel.setError("Video path cannot be empty")
                             return@Button
                         }
-                        // Sanitize movie name for server-side filenames/paths
-                        val safeName = nameState.value.text.trim().replace("[^A-Za-z0-9._-]".toRegex(), "_")
+                        
                         scope.launch {
                             didSubmit.value = true
-                            // Save metadata using server-friendly video/thumbnail paths
-                            viewModel.uploadMovie(
-                                Movie(
-                                    name = nameState.value.text.trim(),
-                                    description = descriptionState.value.text.trim(),
-                                    genre = genreValue,
-                                    thumbnailPath = thumbnailState.value.text.trim(),
-                                    videoPath = "movie/$safeName"
-                                )
+                            
+                            val movie = Movie(
+                                name = nameState.value.text.trim(),
+                                description = descriptionState.value.text.trim(),
+                                genre = genreValue,
+                                thumbnailPath = "", // Will be set in uploadMovieWithContent
+                                videoPath = "" // Will be set in uploadMovieWithContent
                             )
-                            // Upload the actual video file with a consistent filename
-                            viewModel.uploadMovieFile(path, safeName)
+                            
+                            viewModel.uploadMovieWithContent(movie, videoPath, thumbnailPath)
                         }
                     },
                     enabled = !isLoading.value,
