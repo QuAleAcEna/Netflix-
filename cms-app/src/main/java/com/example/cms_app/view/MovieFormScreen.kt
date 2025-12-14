@@ -102,8 +102,8 @@ fun MovieFormScreen(
                         tempFile.outputStream().use { output ->
                             inputStream.copyTo(output)
                         }
-                        val movieName = nameState.value.text.ifBlank { "thumbnail" }
-                        viewModel.uploadThumbnailFile(tempFile.absolutePath, movieName)
+                        // Update state only, upload happens on submit
+                        thumbnailState.value = TextFieldValue(tempFile.absolutePath)
                     } else {
                         viewModel.setError("Unable to read selected thumbnail")
                     }
