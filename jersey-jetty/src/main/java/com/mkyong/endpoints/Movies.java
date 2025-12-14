@@ -104,7 +104,7 @@ public class Movies implements endpoint {
       normalizedThumbnailPath = String.format("thumbnails/%s.png", name);
     }
     if(request.thumbnailPath.isEmpty()){
-        normalizedThumbnailPath = GCSHelper.getPublicUrl("thumbnails/"+name+".png");
+        normalizedThumbnailPath = GCSHelper.getPublicUrl("thumbnails/"+name+"/default.png");
     }
 
     String[] args = {

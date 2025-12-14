@@ -148,7 +148,7 @@ public class UploadService implements endpoint {
       System.out.println("High res video generated");
       
       
-      GCSHelper.upload("thumbnails/" + movieName + ".png", thumbFile, "image/png");
+      GCSHelper.upload("thumbnails/" + movieName + "/default.png", thumbFile, "image/png");
       GCSHelper.upload("videos/" + movieName + "/360.mp4", lowResFile, "video/mp4");
       GCSHelper.upload("videos/" + movieName + "/1080.mp4", highResFile, "video/mp4");
 
