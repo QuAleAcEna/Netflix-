@@ -15,6 +15,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
+import org.checkerframework.checker.units.qual.N;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 
@@ -36,16 +38,7 @@ public class UploadService implements endpoint {
 
     writeToFile(uploadedInputStream, uploadedFileLocation);
 
-    new Thread(() -> {
-
-      if (processVideo(uploadedFileLocation, movieName))
-        addVideoToDB(movieName);
-      else
-        System.out.println("Unable to upload");
-    }).start();
-
-    return Response.status(200).build();
-
+    return processVideo(uploadedFileLocation, movieName);
   }
 
   @POST
@@ -62,13 +55,16 @@ public class UploadService implements endpoint {
     if (originalName == null || originalName.trim().isEmpty()) {
       return Response.status(Response.Status.BAD_REQUEST).entity("Invalid file name").build();
     }
+    System.out.println("Uploading thumbnail");
     try {
       File tempFile = File.createTempFile("thumb_", "_" + originalName);
       Files.copy(uploadedInputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
       String safeMovieName = (movieName != null && !movieName.trim().isEmpty())
           ? movieName.trim()
           : tempFile.getName().replace(".png", "").replace(".jpg", "");
-      String objectName = "thumbnails/" + safeMovieName + ".png";
+          
+        
+      String objectName = "thumbnails/" + safeMovieName.replace(" ","_") + ".png";
       String contentType = Files.probeContentType(tempFile.toPath());
       if (contentType == null || contentType.isEmpty()) {
         contentType = "image/png";
@@ -85,9 +81,16 @@ public class UploadService implements endpoint {
   }
 
   private void addVideoToDB(String movieName) {
+      Integer nextId=0;
+      try {
+          nextId = Mariadb.queryDB("SELECT AUTO_INCREMENT FROM information_schema.TABLES where TABLE_SCHEMA = \"db\" AND TABLE_NAME = \"MOVIE\";").getInt("AUTO_INCREMENT");
+      } catch (SQLException ex) {
+      System.err.println("Unable to insert video to db");
 
-    String videoPath = GCSHelper.getPublicUrl(String.format("videos/%s", movieName));
-    String thumbnailPath = GCSHelper.getPublicUrl(String.format("thumbnails/%s", movieName));
+        return;
+      }
+    String videoPath = GCSHelper.getPublicUrl(String.format("videos/%d", nextId));
+    String thumbnailPath = GCSHelper.getPublicUrl(String.format("thumbnails/%d.png", nextId));
     String[] args = { movieName, videoPath, thumbnailPath, "aaa", "0", "0" };
     if (Mariadb.insert("INSERT INTO MOVIE(name,videoPath,thumbnailPath,description,year,genre) VALUES(?,?,?,?,?,?)",
         args) == false) {
@@ -98,7 +101,7 @@ public class UploadService implements endpoint {
 
   }
 
-  private boolean processVideo(String uploadedFileLocation, String movieName) {
+  private Response processVideo(String uploadedFileLocation, String movieName) {
     try {
       File videoDir = new File(System.getProperty("java.io.tmpdir"), movieName + "_videos");
       videoDir.mkdirs();
@@ -143,7 +146,9 @@ public class UploadService implements endpoint {
       // "-vf", "scale=1920:1080", "-c:a", "copy",
       // String.format("./res/videos/%s/1080.mp4", movieName));
       System.out.println("High res video generated");
-      GCSHelper.upload("thumbnails/" + movieName + ".png", thumbFile, "image/png");
+      
+      
+      GCSHelper.upload("thumbnails/" + movieName + "/default.png", thumbFile, "image/png");
       GCSHelper.upload("videos/" + movieName + "/360.mp4", lowResFile, "video/mp4");
       GCSHelper.upload("videos/" + movieName + "/1080.mp4", highResFile, "video/mp4");
 
@@ -152,16 +157,15 @@ public class UploadService implements endpoint {
       highResFile.delete();
       File file = new File(uploadedFileLocation);
       file.delete();
-      return true;
+      return Response.ok(GCSHelper.getPublicUrl("videos/"+movieName+"/")).type(MediaType.TEXT_PLAIN).build();
+
     } catch (IOException e) {
       System.err.println("Unable to convert video");
-      e.printStackTrace();
     } catch (InterruptedException e) {
-      e.printStackTrace();
     } finally {
       new File(uploadedFileLocation).delete();
     }
-    return false;
+    return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
 
   }
 

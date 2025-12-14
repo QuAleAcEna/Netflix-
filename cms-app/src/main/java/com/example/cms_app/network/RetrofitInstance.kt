@@ -1,12 +1,13 @@
 package com.example.cms_app.network
 
+import com.google.gson.GsonBuilder
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-private const val BASE_URL = "http://10.0.2.2:8080/" // Update to match your backend host
+private const val BASE_URL = "http://34.45.243.39:80/" // Update to match your backend host
 //192.168.1.72
 object RetrofitInstance {
     private val logging = HttpLoggingInterceptor().apply {
@@ -20,11 +21,15 @@ object RetrofitInstance {
         .addInterceptor(logging)
         .build()
 
+    private val gson = GsonBuilder()
+        .setLenient()
+        .create()
+
     val api: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
             .create(ApiService::class.java)
     }

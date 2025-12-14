@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.checkerframework.checker.units.qual.N;
 
 @Path("/movie")
 public class Movies implements endpoint {
@@ -95,12 +96,15 @@ public class Movies implements endpoint {
     String normalizedVideoPath = request.videoPath;
     if (normalizedVideoPath.startsWith("./") || normalizedVideoPath.startsWith("/data")
         || normalizedVideoPath.startsWith("/storage") || normalizedVideoPath.startsWith("/sdcard")) {
-      normalizedVideoPath = String.format("movie/%s", name);
+      normalizedVideoPath = String.format("videos/%s/", name);
     }
     String normalizedThumbnailPath = request.thumbnailPath;
     if (normalizedThumbnailPath.startsWith("./") || normalizedThumbnailPath.startsWith("/data")
         || normalizedThumbnailPath.startsWith("/storage") || normalizedThumbnailPath.startsWith("/sdcard")) {
-      normalizedThumbnailPath = String.format("movie/thumbnails/%s", name);
+      normalizedThumbnailPath = String.format("thumbnails/%s.png", name);
+    }
+    if(request.thumbnailPath.isEmpty()){
+        normalizedThumbnailPath = GCSHelper.getPublicUrl("thumbnails/"+name.replace(" ","_")+"/default.png");
     }
 
     String[] args = {
@@ -111,12 +115,15 @@ public class Movies implements endpoint {
         normalizedVideoPath,
         normalizedThumbnailPath
     };
+    
+      
     Integer newId = Mariadb.insertAndReturnId(
         "INSERT INTO MOVIE(name,description,genre,year,videoPath,thumbnailPath) VALUES(?,?,?,?,?,?)", args);
     if (newId == null) {
       System.out.println("Create movie failed (DB insert) for " + name);
       return Response.serverError().build();
     }
+
     System.out.println("Created movie id=" + newId + " name=" + name);
     Movie movie = new Movie(newId, name, request.description != null ? request.description : "",
         request.genre != null ? request.genre : 0,
@@ -135,17 +142,10 @@ public class Movies implements endpoint {
         String videoPath = movie.getString("videoPath");
         String thumbnailPath = movie.getString("thumbnailPath");
         // Attempt to delete associated objects in the bucket
+        GCSHelper.deleteObject(GCSHelper.getPublicUrl("thumbnails/"+movie.getString("name").replace(" ", "_")+"/default.png"));
         GCSHelper.deleteObject(thumbnailPath);
-        if (videoPath != null) {
-          if (videoPath.contains("videos/") && !videoPath.endsWith(".mp4")) {
-            // Likely a folder path like videos/<name>; try common resolutions
-            String base = videoPath.replaceFirst("https://storage.googleapis.com/[^/]+/", "");
-            GCSHelper.deleteObject(base + "/360.mp4");
-            GCSHelper.deleteObject(base + "/1080.mp4");
-          } else {
-            GCSHelper.deleteObject(videoPath);
-          }
-        }
+        GCSHelper.deleteObject(videoPath+"360.mp4");
+        GCSHelper.deleteObject(videoPath+"1080.mp4");
         Mariadb.execute("DELETE FROM MOVIE WHERE id = ?", args);
         System.out.println("Deleted movie id=" + id);
       } else {
@@ -196,7 +196,7 @@ public class Movies implements endpoint {
       // Normalize paths similar to createMovie
       if (newThumbnailPath.startsWith("./") || newThumbnailPath.startsWith("/data")
           || newThumbnailPath.startsWith("/storage") || newThumbnailPath.startsWith("/sdcard")) {
-        newThumbnailPath = String.format("movie/thumbnails/%s", newName);
+        newThumbnailPath = String.format("thumbnails/%s", newName);
       }
 
       String[] updateArgs = {
@@ -229,10 +229,10 @@ public class Movies implements endpoint {
   }
 
   @GET
-  @Path("/thumbnails/{movieName}")
+  @Path("/thumbnails/{videoName}")
   @Produces("image/png")
-  public Response getThumbnail(@PathParam("movieName") String movieName) {
-    String[] arg = { movieName };
+  public Response getThumbnail(@PathParam("videoName") String videoName) {
+    String[] arg = { videoName };
     ResultSet result = Mariadb.queryDB("SELECT thumbnailPath FROM MOVIE WHERE name = ?", arg);
 
     try {
@@ -241,7 +241,6 @@ public class Movies implements endpoint {
             .build();
       String thumbnailPath;
       thumbnailPath = result.getString("thumbnailPath");
-      thumbnailPath = String.format("%s.png", thumbnailPath);
       return Response.seeOther(new java.net.URI(thumbnailPath)).build();
       // File file = new File(String.format("%s/%s.png", thumbnailPath, movieName));
       // return Response.ok(file, MediaType.APPLICATION_OCTET_STREAM).build();
@@ -266,7 +265,7 @@ public class Movies implements endpoint {
         return Response.status(Response.Status.NOT_FOUND).entity("Video not found").build();
       }
       String videoPath = result.getString("videoPath");
-      videoPath = String.format("%s/%d.mp4", videoPath, resolution);
+      videoPath = String.format("%s%d.mp4", videoPath, resolution);
       return GCSHelper.streamFromGcs(videoPath, range);
 
     } catch (Exception e) {

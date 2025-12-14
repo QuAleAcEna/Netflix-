@@ -79,6 +79,70 @@ class MovieViewModel(
         }
     }
 
+    fun uploadMovieWithContent(
+        movie: Movie,
+        videoPath: String,
+        thumbnailPath: String?
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                // 1. Upload Thumbnail (if exists)
+                var finalThumbnailPath = movie.thumbnailPath
+                if (!thumbnailPath.isNullOrBlank()) {
+                    val thumbFile = File(thumbnailPath)
+                    if (thumbFile.exists()) {
+                        val thumbResponse = repository.uploadThumbnailFile(thumbFile, movie.name)
+                        if (!thumbResponse.isSuccessful) {
+                            throw Exception("Thumbnail upload failed: ${thumbResponse.code()}")
+                        }
+                        val responseBody = thumbResponse.body()?.string()
+                        if (!responseBody.isNullOrBlank()) {
+                            finalThumbnailPath = responseBody
+                        }
+                    }
+                }else finalThumbnailPath = "";
+
+                // 2. Upload Video
+                val videoFile = File(videoPath)
+                if (!videoFile.exists()) {
+                     throw Exception("Video file not found at $videoPath")
+                }
+                
+                val safeName = movie.name.trim().replace("[^A-Za-z0-9._-]".toRegex(), "_")
+                val videoResponse = repository.uploadMovieFile(videoFile, safeName)
+                
+                if (!videoResponse.isSuccessful) {
+                    throw Exception("Video upload failed: ${videoResponse.code()}")
+                }
+
+                val finalVideoPath = videoResponse.body()?.string()
+                if (finalVideoPath.isNullOrBlank()) {
+                     throw Exception("Video upload succeeded but returned empty URL")
+                }
+
+                // 3. Upload Movie to DB
+                val finalMovie = movie.copy(
+                    thumbnailPath = finalThumbnailPath,
+                    videoPath = finalVideoPath
+                )
+                
+                val movieResponse = repository.uploadMovie(finalMovie)
+                if (movieResponse.isSuccessful) {
+                    _lastOperationSucceeded.value = true
+                    loadMovies()
+                } else {
+                     throw Exception("Movie creation failed: ${movieResponse.code()}")
+                }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Unknown error"
+                _lastOperationSucceeded.value = false
+            }
+            _isLoading.value = false
+        }
+    }
+
     fun uploadMovie(movie: Movie) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -138,7 +202,7 @@ class MovieViewModel(
                 } else {
                     val response = repository.uploadThumbnailFile(file, movieName)
                     if (response.isSuccessful) {
-                        _uploadedThumbnailUrl.value = response.body()
+                        _uploadedThumbnailUrl.value = response.body()?.string()
                         _lastOperationSucceeded.value = true
                     } else {
                         _error.value = "Failed to upload thumbnail (${response.code()})"

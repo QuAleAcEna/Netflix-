@@ -17,6 +17,7 @@ import retrofit2.http.Path
 import retrofit2.http.PUT
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 
 interface ApiService {
 
@@ -43,14 +44,14 @@ interface ApiService {
     @POST("file/upload")
     suspend fun uploadMovieFile(
         @Part file: MultipartBody.Part
-    ): Response<Unit>
+    ): Response<ResponseBody>
 
     @Multipart
     @POST("file/upload-thumbnail")
     suspend fun uploadThumbnailFile(
         @Part file: MultipartBody.Part,
         @Part("movieName") movieName: RequestBody
-    ): Response<String>
+    ): Response<ResponseBody>
 
     // Users (for streaming app)
     @GET("user/all")
