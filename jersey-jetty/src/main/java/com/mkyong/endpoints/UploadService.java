@@ -51,7 +51,7 @@ public class UploadService implements endpoint {
     if (uploadedInputStream == null || fileDetail == null) {
       return Response.status(Response.Status.BAD_REQUEST).entity("Missing file").build();
     }
-    String originalName = fileDetail.getFileName();
+    String originalName = fileDetail.getFileName().replace(" ","_");
     if (originalName == null || originalName.trim().isEmpty()) {
       return Response.status(Response.Status.BAD_REQUEST).entity("Invalid file name").build();
     }
@@ -61,7 +61,7 @@ public class UploadService implements endpoint {
       Files.copy(uploadedInputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
       String safeMovieName = (movieName != null && !movieName.trim().isEmpty())
           ? movieName.trim()
-          : tempFile.getName().replace(".png", "").replace(".jpg", "").replace(" ","_");
+          : tempFile.getName().replace(".png", "").replace(".jpg", "");
           
         
       String objectName = "thumbnails/" + safeMovieName + ".png";
