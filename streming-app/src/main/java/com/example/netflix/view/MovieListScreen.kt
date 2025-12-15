@@ -80,6 +80,7 @@ import com.example.netflix.model.Movie
 import com.example.netflix.repository.ProgressRepository
 import com.example.netflix.util.WatchProgressManager
 import com.example.netflix.viewmodel.MovieViewModel
+import com.example.netflix.data.AuthStore
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource.Companion.UserInput
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -227,6 +228,8 @@ fun MovieListScreen(
     val watchProgressManager = remember { WatchProgressManager(context) }
     val progressRepository = remember { ProgressRepository() }
     val progressRefreshScope = rememberCoroutineScope()
+    val logoutScope = rememberCoroutineScope()
+    val authStore = remember { AuthStore(context.applicationContext) }
     var progressMap by remember(profileId) { mutableStateOf<Map<Int, Long>>(emptyMap()) }
     var selectedMovie by remember { mutableStateOf<Movie?>(null) }
     var expandedMovie by remember { mutableStateOf<Movie?>(null) }
@@ -378,6 +381,10 @@ fun MovieListScreen(
                                 text = { Text("Terminar sessão") },
                                 onClick = {
                                     accountMenuExpanded = false
+                                    // Clear saved credentials for this device
+                                    logoutScope.launch {
+                                        authStore.clear()
+                                    }
                                     navController.navigate("signin") {
                                         popUpTo("splash") {
                                             inclusive = true

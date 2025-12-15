@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,7 +18,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,18 +28,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.netflix.network.RetrofitInstance
+import com.example.netflix.data.AuthStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun SignInScreen(navController: NavController) {
+    val context = LocalContext.current
+    val authStore = remember { AuthStore(context.applicationContext) }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var rememberMe by remember { mutableStateOf(false) }
     var showCreateAccountDialog by remember { mutableStateOf(false) }
     var showAccountCreatedDialog by remember { mutableStateOf(false) }
     var newUsername by remember { mutableStateOf("") }
@@ -44,6 +54,43 @@ fun SignInScreen(navController: NavController) {
     var isSigningIn by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val performSignIn: suspend (String, String, Boolean) -> Unit = { user, pass, rememberFlag ->
+        isSigningIn = true
+        try {
+            val response = withContext(Dispatchers.IO) {
+                RetrofitInstance.api.connectUser(user, pass)
+            }
+            if (response.isSuccessful) {
+                val u = response.body()
+                if (u != null) {
+                    authStore.saveCredentials(user, pass, rememberFlag)
+                    navController.navigate(
+                        "profiles/${u.id}/${Uri.encode(u.name)}"
+                    ) {
+                        popUpTo("signin") { inclusive = true }
+                    }
+                } else {
+                    snackbarHostState.showSnackbar("Credenciais inválidas.")
+                }
+            } else {
+                snackbarHostState.showSnackbar("Credenciais inválidas.")
+            }
+        } catch (e: Exception) {
+            snackbarHostState.showSnackbar("Erro ao comunicar com o servidor.")
+        } finally {
+            isSigningIn = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val stored = authStore.rememberedCredentials.first()
+        if (stored != null) {
+            username = stored.username
+            password = stored.password
+            rememberMe = true
+            performSignIn(stored.username, stored.password, true)
+        }
+    }
 
     if (showCreateAccountDialog) {
         AlertDialog(
@@ -168,6 +215,18 @@ fun SignInScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = rememberMe,
+                        onCheckedChange = { rememberMe = it },
+                        enabled = !isSigningIn
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Lembrar-me neste dispositivo")
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Button(
                     onClick = {
                         val trimmedUsername = username.trim()
@@ -179,33 +238,7 @@ fun SignInScreen(navController: NavController) {
                         }
 
                         coroutineScope.launch {
-                            isSigningIn = true
-                            try {
-                                val response = withContext(Dispatchers.IO) {
-                                    RetrofitInstance.api.connectUser(
-                                        trimmedUsername,
-                                        password
-                                    )
-                                }
-                                if (response.isSuccessful) {
-                                    val user = response.body()
-                                    if (user != null) {
-                                        navController.navigate(
-                                            "profiles/${user.id}/${Uri.encode(user.name)}"
-                                        ) {
-                                            popUpTo("signin") { inclusive = true }
-                                        }
-                                    } else {
-                                        snackbarHostState.showSnackbar("Credenciais inválidas.")
-                                    }
-                                } else {
-                                    snackbarHostState.showSnackbar("Credenciais inválidas.")
-                                }
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("Erro ao comunicar com o servidor.")
-                            } finally {
-                                isSigningIn = false
-                            }
+                            performSignIn(trimmedUsername, password, rememberMe)
                         }
                     },
                     enabled = !isSigningIn

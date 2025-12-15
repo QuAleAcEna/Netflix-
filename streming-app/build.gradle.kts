@@ -94,4 +94,5 @@ dependencies {
     implementation(libs.retrofit.gson) // duplicated somewhat but might be needed if alias differs
     implementation(libs.okhttp.logging)
     implementation(libs.coil.compose)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 }
