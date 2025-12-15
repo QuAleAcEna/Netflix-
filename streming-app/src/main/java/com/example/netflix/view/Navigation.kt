@@ -92,6 +92,29 @@ fun AppNavigation() {
         }
 
         composable(
+            route = "movieDetail/{userId}/{accountName}/{profileId}/{movieId}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.IntType },
+                navArgument("accountName") { type = NavType.StringType; defaultValue = "_" },
+                navArgument("profileId") { type = NavType.IntType },
+                navArgument("movieId") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getInt("userId") ?: -1
+            val encodedAccountName = backStackEntry.arguments?.getString("accountName") ?: "_"
+            val accountName = Uri.decode(encodedAccountName).takeIf { it != "_" } ?: ""
+            val profileId = backStackEntry.arguments?.getInt("profileId") ?: -1
+            val movieId = backStackEntry.arguments?.getInt("movieId") ?: -1
+            MovieDetailScreen(
+                navController = navController,
+                userId = userId,
+                accountName = accountName,
+                profileId = profileId,
+                movieId = movieId
+            )
+        }
+
+        composable(
             route = "player/{profileId}/{movieId}/{url}/{title}",
             arguments = listOf(
                 navArgument("profileId") { type = NavType.IntType },

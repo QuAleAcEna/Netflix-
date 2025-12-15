@@ -455,7 +455,10 @@ fun MovieListScreen(
                                 MovieCard(
                                     movie = movie,
                                     progressMs = progressMap[movie.id] ?: 0L,
-                                    onClick = { selectedMovie = movie },
+                                    onClick = {
+                                        val encodedAccount = Uri.encode(accountName.ifBlank { "_" })
+                                        navController.navigate("movieDetail/$userId/$encodedAccount/$profileId/${movie.id}")
+                                    },
                                     onLongClick = { expandedMovie = movie }
                                 )
                             }
