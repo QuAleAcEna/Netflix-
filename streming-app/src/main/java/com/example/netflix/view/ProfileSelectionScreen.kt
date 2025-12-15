@@ -62,8 +62,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import android.net.Uri
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.netflix.R
 import com.example.netflix.model.CreateProfileRequest
 import com.example.netflix.model.Profile
@@ -87,7 +85,8 @@ fun ProfileSelectionScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var newProfileName by remember { mutableStateOf("") }
     var isKidsProfile by remember { mutableStateOf(false) }
-    val avatarOptions = listOf("seed1", "seed2", "seed3", "seed4", "seed5", "seed6", "seed7", "seed8")
+    // Local drawable names; add matching images in res/drawable (e.g., avatar1.png, avatar2.png, etc.)
+    val avatarOptions = listOf("avatar1", "avatar2", "avatar3", "avatar4", "avatar5", "avatar6", "avatar7", "avatar8", "avatar9")
     var selectedAvatarSeed by remember { mutableStateOf(avatarOptions.first()) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var isLoadingProfiles by remember { mutableStateOf(false) }
@@ -183,12 +182,10 @@ fun ProfileSelectionScreen(
                                     )
                                     .clickable { selectedAvatarSeed = seed }
                             ) {
-                                val url = "https://api.multiavatar.com/${Uri.encode(seed)}.png"
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(url)
-                                        .crossfade(true)
-                                        .build(),
+                                val context = LocalContext.current
+                                val resId = context.resources.getIdentifier(seed, "drawable", context.packageName)
+                                Image(
+                                    painter = painterResource(id = if (resId != 0) resId else R.drawable.ic_launcher_foreground),
                                     contentDescription = "Avatar $seed",
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
@@ -328,12 +325,10 @@ fun ProfileSelectionScreen(
                                     )
                                     .clickable { editAvatarSeed = seed }
                             ) {
-                                val url = "https://api.multiavatar.com/${Uri.encode(seed)}.png"
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
-                                        .data(url)
-                                        .crossfade(true)
-                                        .build(),
+                                val context = LocalContext.current
+                                val resId = context.resources.getIdentifier(seed, "drawable", context.packageName)
+                                Image(
+                                    painter = painterResource(id = if (resId != 0) resId else R.drawable.ic_launcher_foreground),
                                     contentDescription = "Avatar $seed",
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
@@ -590,7 +585,7 @@ private fun ProfileCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val avatarSeed = profile.avatarColor.ifBlank { profile.name.ifBlank { "seed1" } }
+    val avatarSeed = profile.avatarColor.ifBlank { profile.name.ifBlank { "avatar1" } }
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -624,12 +619,10 @@ private fun ProfileCard(
                     .clickable(onClick = onClick),
                 contentAlignment = Alignment.Center
             ) {
-                val url = "https://api.multiavatar.com/${Uri.encode(avatarSeed)}.png"
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(url)
-                        .crossfade(true)
-                        .build(),
+                val context = LocalContext.current
+                val resId = context.resources.getIdentifier(avatarSeed, "drawable", context.packageName)
+                Image(
+                    painter = if (resId != 0) painterResource(id = resId) else painterResource(id = R.drawable.ic_launcher_foreground),
                     contentDescription = "Avatar de ${profile.name}",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
