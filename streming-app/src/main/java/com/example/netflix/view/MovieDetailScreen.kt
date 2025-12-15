@@ -64,6 +64,7 @@ fun MovieDetailScreen(
     val watchProgressManager = remember { WatchProgressManager(context) }
     val progressRepository = remember { ProgressRepository() }
     val movies by movieViewModel.movies.collectAsState()
+    var selectedQuality by remember { mutableStateOf("1080") }
 
     LaunchedEffect(movies) {
         if (movies.isEmpty()) {
@@ -146,10 +147,23 @@ fun MovieDetailScreen(
                     Text("Progress: ${detailFormatPlaybackPosition(progressMs)}", style = MaterialTheme.typography.bodySmall, color = Color.White)
                     Spacer(modifier = Modifier.height(12.dp))
                 }
+
+                Text("Quality", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    QualityChip(label = "1080p", selected = selectedQuality == "1080") {
+                        selectedQuality = "1080"
+                    }
+                    QualityChip(label = "360p", selected = selectedQuality == "360") {
+                        selectedQuality = "360"
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Button(
                     onClick = {
-                        val fileName = "${movie.name}-1080p.mp4"
-                        val videoUrl = "${movie.videoPath}/1080"
+                        val fileName = "${movie.name}-${selectedQuality}p.mp4"
+                        val videoUrl = "${movie.videoPath}/${selectedQuality}"
                         val encodedUrl = Uri.encode(videoUrl)
                         val encodedTitle = Uri.encode(fileName)
                         navController.navigate("player/$profileId/${movie.id}/$encodedUrl/$encodedTitle")
@@ -169,8 +183,8 @@ fun MovieDetailScreen(
                             } catch (_: Exception) {
                             }
                         }
-                        val fileName = "${movie.name}-1080p.mp4"
-                        val videoUrl = "${movie.videoPath}/1080"
+                        val fileName = "${movie.name}-${selectedQuality}p.mp4"
+                        val videoUrl = "${movie.videoPath}/${selectedQuality}"
                         val encodedUrl = Uri.encode(videoUrl)
                         val encodedTitle = Uri.encode(fileName)
                         navController.navigate("player/$profileId/${movie.id}/$encodedUrl/$encodedTitle")
@@ -182,24 +196,39 @@ fun MovieDetailScreen(
     }
 }
 
+@Composable
+private fun QualityChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val background = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f)
+    val contentColor = if (selected) Color.White else Color.White
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Text(text = label, color = contentColor, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+    }
+}
+
 private fun detailGenreName(genreId: Int): String {
     val genres = listOf(
         "Action",
         "Adventure",
         "Animation",
         "Comedy",
-        "Crime / Gangster",
+        "Crime",
         "Drama",
         "Family",
         "Fantasy",
-        "Historical / Period",
+        "Historical",
         "Horror",
         "Musical",
         "Mystery",
         "Romance",
-        "Science Fiction (Sci-Fi)",
+        "Science Fiction",
         "Sports",
-        "Thriller / Suspense",
+        "Thriller",
         "War",
         "Western"
     )
