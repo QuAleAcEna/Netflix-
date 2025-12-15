@@ -359,7 +359,7 @@ fun MovieListScreen(
                         IconButton(onClick = { accountMenuExpanded = true }) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = "Opções de conta"
+                                contentDescription = "Account options"
                             )
                         }
                         DropdownMenu(
@@ -367,7 +367,7 @@ fun MovieListScreen(
                             onDismissRequest = { accountMenuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Trocar de perfil") },
+                                text = { Text("Switch profile") },
                                 onClick = {
                                     accountMenuExpanded = false
                                     val navigatedBack = navController.popBackStack()
@@ -378,7 +378,7 @@ fun MovieListScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Terminar sessão") },
+                                text = { Text("Sign out") },
                                 onClick = {
                                     accountMenuExpanded = false
                                     // Clear saved credentials for this device

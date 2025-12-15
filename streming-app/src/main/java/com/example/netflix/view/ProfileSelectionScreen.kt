@@ -106,7 +106,7 @@ fun ProfileSelectionScreen(
 
     LaunchedEffect(userId) {
         if (userId <= 0) {
-            snackbarHostState.showSnackbar("Não foi possível identificar o utilizador. Volte a iniciar sessão.")
+            snackbarHostState.showSnackbar("Could not identify the user. Please sign in again.")
             navController.navigate("signin") {
                 popUpTo("signin") { inclusive = true }
             }
@@ -122,10 +122,10 @@ fun ProfileSelectionScreen(
                 profiles.clear()
                 response.body()?.let { profiles.addAll(it) }
             } else {
-                snackbarHostState.showSnackbar("Erro ao carregar perfis (${response.code()}).")
+                snackbarHostState.showSnackbar("Failed to load profiles (${response.code()}).")
             }
         } catch (e: Exception) {
-            snackbarHostState.showSnackbar("Erro de ligação ao carregar perfis.")
+            snackbarHostState.showSnackbar("Connection error while loading profiles.")
         } finally {
             isLoadingProfiles = false
         }
@@ -141,7 +141,7 @@ fun ProfileSelectionScreen(
                     nameError = null
                 }
             },
-            title = { Text(text = "Novo perfil") },
+            title = { Text(text = "New profile") },
             text = {
                 Column {
                     OutlinedTextField(
@@ -150,7 +150,7 @@ fun ProfileSelectionScreen(
                             newProfileName = it
                             if (nameError != null) nameError = null
                         },
-                        label = { Text("Nome") },
+                        label = { Text("Name") },
                         singleLine = true,
                         isError = nameError != null
                     )
@@ -163,7 +163,7 @@ fun ProfileSelectionScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Avatar", color = Color.White)
+                        Text("Avatar", color = Color.White)
                     Spacer(modifier = Modifier.height(8.dp))
                     androidx.compose.foundation.layout.FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -198,7 +198,7 @@ fun ProfileSelectionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Perfil infantil")
+                        Text("Kids profile")
                         Spacer(modifier = Modifier.weight(1f))
                         Switch(
                             checked = isKidsProfile,
@@ -214,9 +214,9 @@ fun ProfileSelectionScreen(
                         val trimmedName = newProfileName.trim()
                         when {
                             trimmedName.isEmpty() ->
-                                nameError = "O nome não pode estar vazio"
+                                nameError = "Name cannot be empty"
                             profiles.any { it.name.equals(trimmedName, ignoreCase = true) } ->
-                                nameError = "Já existe um perfil com esse nome"
+                                nameError = "A profile with this name already exists"
                             else -> {
                                 coroutineScope.launch {
                                     isSavingProfile = true
@@ -234,7 +234,7 @@ fun ProfileSelectionScreen(
                                         if (response.isSuccessful) {
                                             response.body()?.let { created ->
                                                 profiles.add(created)
-                                                snackbarHostState.showSnackbar("Perfil criado.")
+                                                snackbarHostState.showSnackbar("Profile created.")
                                             }
                                             showAddDialog = false
                                             newProfileName = ""
@@ -242,12 +242,12 @@ fun ProfileSelectionScreen(
                                             selectedAvatarSeed = avatarSeeds.first()
                                             nameError = null
                                         } else if (response.code() == 409) {
-                                            nameError = "Esse nome já está a ser usado."
+                                            nameError = "That name is already in use."
                                         } else {
-                                            snackbarHostState.showSnackbar("Não foi possível criar o perfil (${response.code()}).")
+                                            snackbarHostState.showSnackbar("Could not create profile (${response.code()}).")
                                         }
                                     } catch (e: Exception) {
-                                        snackbarHostState.showSnackbar("Erro ao criar o perfil. Tente novamente.")
+                                        snackbarHostState.showSnackbar("Error creating profile. Please try again.")
                                     } finally {
                                         isSavingProfile = false
                                     }
@@ -256,7 +256,7 @@ fun ProfileSelectionScreen(
                         }
                     }
                 ) {
-                    Text(if (isSavingProfile) "A guardar..." else "Guardar")
+                    Text(if (isSavingProfile) "Saving..." else "Save")
                 }
             },
             dismissButton = {
@@ -270,7 +270,7 @@ fun ProfileSelectionScreen(
                         }
                     }
                 ) {
-                    Text("Cancelar")
+                    Text("Cancel")
                 }
             }
         )
@@ -284,7 +284,7 @@ fun ProfileSelectionScreen(
                     nameError = null
                 }
             },
-            title = { Text(text = "Editar perfil") },
+            title = { Text(text = "Edit profile") },
             text = {
                 Column {
                     OutlinedTextField(
@@ -293,7 +293,7 @@ fun ProfileSelectionScreen(
                             editName = it
                             if (nameError != null) nameError = null
                         },
-                        label = { Text("Nome") },
+                        label = { Text("Name") },
                         singleLine = true,
                         isError = nameError != null
                     )
@@ -341,7 +341,7 @@ fun ProfileSelectionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Perfil infantil")
+                        Text("Kids profile")
                         Spacer(modifier = Modifier.weight(1f))
                         Switch(
                             checked = editKids,
@@ -356,7 +356,7 @@ fun ProfileSelectionScreen(
                     onClick = {
                         val trimmedName = editName.trim()
                         if (trimmedName.isEmpty()) {
-                            nameError = "O nome não pode estar vazio"
+                            nameError = "Name cannot be empty"
                             return@TextButton
                         }
                         profileToEdit?.let { profile ->
@@ -379,15 +379,15 @@ fun ProfileSelectionScreen(
                                             if (index >= 0) {
                                                 profiles[index] = updated
                                             }
-                                            snackbarHostState.showSnackbar("Perfil atualizado.")
+                                            snackbarHostState.showSnackbar("Profile updated.")
                                         }
                                         profileToEdit = null
                                         nameError = null
                                     } else {
-                                        snackbarHostState.showSnackbar("Não foi possível atualizar (${response.code()}).")
+                                        snackbarHostState.showSnackbar("Could not update (${response.code()}).")
                                     }
                                 } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar("Erro ao atualizar o perfil.")
+                                    snackbarHostState.showSnackbar("Error updating profile.")
                                 } finally {
                                     isUpdatingProfile = false
                                 }
@@ -395,12 +395,12 @@ fun ProfileSelectionScreen(
                         }
                     }
                 ) {
-                    Text(if (isUpdatingProfile) "A guardar..." else "Guardar")
+                    Text(if (isUpdatingProfile) "Saving..." else "Save")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { if (!isUpdatingProfile) profileToEdit = null }) {
-                    Text("Cancelar")
+                    Text("Cancel")
                 }
             }
         )
@@ -409,8 +409,8 @@ fun ProfileSelectionScreen(
     if (profileToDelete != null) {
         AlertDialog(
             onDismissRequest = { if (!isDeletingProfile) profileToDelete = null },
-            title = { Text("Apagar perfil?") },
-            text = { Text("Esta ação remove o perfil e o progresso associado.") },
+            title = { Text("Delete profile?") },
+            text = { Text("This will remove the profile and its associated progress.") },
             confirmButton = {
                 TextButton(
                     enabled = !isDeletingProfile,
@@ -424,12 +424,12 @@ fun ProfileSelectionScreen(
                                     }
                                     if (response.isSuccessful) {
                                         profiles.removeAll { it.id == profile.id }
-                                        snackbarHostState.showSnackbar("Perfil removido.")
+                                        snackbarHostState.showSnackbar("Profile removed.")
                                     } else {
-                                        snackbarHostState.showSnackbar("Não foi possível apagar (${response.code()}).")
+                                        snackbarHostState.showSnackbar("Could not delete (${response.code()}).")
                                     }
                                 } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar("Erro ao apagar o perfil.")
+                                    snackbarHostState.showSnackbar("Error deleting profile.")
                                 } finally {
                                     isDeletingProfile = false
                                     profileToDelete = null
@@ -438,12 +438,12 @@ fun ProfileSelectionScreen(
                         }
                     }
                 ) {
-                    Text(if (isDeletingProfile) "A apagar..." else "Apagar")
+                    Text(if (isDeletingProfile) "Deleting..." else "Delete")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { if (!isDeletingProfile) profileToDelete = null }) {
-                    Text("Cancelar")
+                    Text("Cancel")
                 }
             }
         )
@@ -465,9 +465,9 @@ fun ProfileSelectionScreen(
                     title = {
                         Text(
                             text = if (accountName.isNotBlank()) {
-                                "Quem está a assistir, $accountName?"
+                                "Who's watching, $accountName?"
                             } else {
-                                "Quem está a assistir?"
+                                "Who's watching?"
                             },
                             fontWeight = FontWeight.SemiBold
                         )
@@ -484,7 +484,7 @@ fun ProfileSelectionScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Logout,
-                                contentDescription = "Terminar sessão",
+                                contentDescription = "Sign out",
                                 tint = Color.White
                             )
                         }
@@ -501,7 +501,7 @@ fun ProfileSelectionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Escolha um perfil para continuar",
+                    text = "Choose a profile to continue",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White,
                     textAlign = TextAlign.Center
@@ -529,7 +529,7 @@ fun ProfileSelectionScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Ainda não existem perfis. Crie um para começar.",
+                                text = "No profiles yet. Create one to get started.",
                                 color = Color.White,
                                 textAlign = TextAlign.Center
                             )
@@ -606,10 +606,10 @@ private fun ProfileCard(
                 horizontalArrangement = Arrangement.End
             ) {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Editar", tint = Color.White)
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit profile", tint = Color.White)
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Apagar", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete profile", tint = MaterialTheme.colorScheme.error)
                 }
             }
             Box(
@@ -623,7 +623,7 @@ private fun ProfileCard(
                 val resId = context.resources.getIdentifier(avatarSeed, "drawable", context.packageName)
                 Image(
                     painter = if (resId != 0) painterResource(id = resId) else painterResource(id = R.drawable.ic_launcher_foreground),
-                    contentDescription = "Avatar de ${profile.name}",
+                    contentDescription = "Avatar of ${profile.name}",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -639,7 +639,7 @@ private fun ProfileCard(
             if (profile.kids) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Perfil infantil",
+                    text = "Kids profile",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
@@ -676,13 +676,13 @@ private fun AddProfileCard(onClick: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = "Adicionar perfil",
+                    contentDescription = "Add profile",
                     tint = Color.White
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Adicionar perfil",
+                text = "Add profile",
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
                 textAlign = TextAlign.Center

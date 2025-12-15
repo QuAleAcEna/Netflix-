@@ -70,13 +70,13 @@ fun SignInScreen(navController: NavController) {
                         popUpTo("signin") { inclusive = true }
                     }
                 } else {
-                    snackbarHostState.showSnackbar("Credenciais inválidas.")
+                    snackbarHostState.showSnackbar("Invalid credentials.")
                 }
             } else {
-                snackbarHostState.showSnackbar("Credenciais inválidas.")
+                snackbarHostState.showSnackbar("Invalid credentials.")
             }
         } catch (e: Exception) {
-            snackbarHostState.showSnackbar("Erro ao comunicar com o servidor.")
+            snackbarHostState.showSnackbar("Could not reach the server.")
         } finally {
             isSigningIn = false
         }
@@ -95,7 +95,7 @@ fun SignInScreen(navController: NavController) {
     if (showCreateAccountDialog) {
         AlertDialog(
             onDismissRequest = { if (!isCreatingAccount) showCreateAccountDialog = false },
-            title = { Text("Criar nova conta") },
+            title = { Text("Create new account") },
             text = {
                 Column {
                     OutlinedTextField(
@@ -117,7 +117,7 @@ fun SignInScreen(navController: NavController) {
                     onClick = {
                         if (newUsername.isBlank() || newPassword.isBlank()) {
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Preencha username e password para criar a conta.")
+                                snackbarHostState.showSnackbar("Please fill username and password to create the account.")
                             }
                             return@TextButton
                         }
@@ -139,10 +139,10 @@ fun SignInScreen(navController: NavController) {
                                     newUsername = ""
                                     newPassword = ""
                                 } else {
-                                    snackbarHostState.showSnackbar("Não foi possível criar a conta. Verifique os dados e tente novamente.")
+                                    snackbarHostState.showSnackbar("Could not create the account. Check the data and try again.")
                                 }
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("Erro ao comunicar com o servidor. Tente novamente.")
+                                snackbarHostState.showSnackbar("Could not reach the server. Please try again.")
                             } finally {
                                 isCreatingAccount = false
                             }
@@ -150,7 +150,7 @@ fun SignInScreen(navController: NavController) {
                     },
                     enabled = !isCreatingAccount
                 ) {
-                    Text(if (isCreatingAccount) "Aguarde..." else "Criar")
+                    Text(if (isCreatingAccount) "Please wait..." else "Create")
                 }
             },
             dismissButton = {
@@ -163,7 +163,7 @@ fun SignInScreen(navController: NavController) {
                         }
                     }
                 ) {
-                    Text("Cancelar")
+                    Text("Cancel")
                 }
             }
         )
@@ -172,8 +172,8 @@ fun SignInScreen(navController: NavController) {
     if (showAccountCreatedDialog) {
         AlertDialog(
             onDismissRequest = { showAccountCreatedDialog = false },
-            title = { Text("Conta criada") },
-            text = { Text("Conta criada com sucesso. Já pode iniciar sessão!") },
+            title = { Text("Account created") },
+            text = { Text("Account created successfully. You can sign in now!") },
             confirmButton = {
                 TextButton(onClick = { showAccountCreatedDialog = false }) {
                     Text("OK")
@@ -222,7 +222,7 @@ fun SignInScreen(navController: NavController) {
                         enabled = !isSigningIn
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Lembrar-me neste dispositivo")
+                    Text("Remember me on this device")
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -232,7 +232,7 @@ fun SignInScreen(navController: NavController) {
                         val trimmedUsername = username.trim()
                         if (trimmedUsername.isEmpty() || password.isBlank()) {
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Introduza username e password.")
+                                snackbarHostState.showSnackbar("Enter username and password.")
                             }
                             return@Button
                         }
@@ -243,13 +243,13 @@ fun SignInScreen(navController: NavController) {
                     },
                     enabled = !isSigningIn
                 ) {
-                    Text(if (isSigningIn) "A autenticar..." else "Sign In")
+                    Text(if (isSigningIn) "Signing in..." else "Sign In")
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 TextButton(onClick = { showCreateAccountDialog = true }) {
-                    Text("Criar nova conta")
+                    Text("Create new account")
                 }
             }
         }

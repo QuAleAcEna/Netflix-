@@ -77,10 +77,10 @@ fun MovieDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(movie?.name ?: "Detalhes") },
+                title = { Text(movie?.name ?: "Details") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -93,7 +93,7 @@ fun MovieDetailScreen(
                     .padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
-            ) { Text("A carregar filme...") }
+            ) { Text("Loading movie...") }
             return@Scaffold
         }
 
@@ -140,10 +140,10 @@ fun MovieDetailScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text("Year: N/A", style = MaterialTheme.typography.bodyMedium, color = Color.White)
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(movie.description.ifBlank { "Sem descrição." }, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                Text(movie.description.ifBlank { "No description available." }, style = MaterialTheme.typography.bodyMedium, color = Color.White)
                 Spacer(modifier = Modifier.height(24.dp))
                 if (progressMs > 0L) {
-                    Text("Progresso: ${detailFormatPlaybackPosition(progressMs)}", style = MaterialTheme.typography.bodySmall, color = Color.White)
+                    Text("Progress: ${detailFormatPlaybackPosition(progressMs)}", style = MaterialTheme.typography.bodySmall, color = Color.White)
                     Spacer(modifier = Modifier.height(12.dp))
                 }
                 Button(
@@ -156,7 +156,7 @@ fun MovieDetailScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    val continueLabel = if (progressMs > 0) "Continuar • ${detailFormatPlaybackPosition(progressMs)}" else "Assistir"
+                    val continueLabel = if (progressMs > 0) "Continue • ${detailFormatPlaybackPosition(progressMs)}" else "Watch"
                     Text(continueLabel)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -176,7 +176,7 @@ fun MovieDetailScreen(
                         navController.navigate("player/$profileId/${movie.id}/$encodedUrl/$encodedTitle")
                     },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Recomeçar") }
+                ) { Text("Restart") }
             }
         }
     }
