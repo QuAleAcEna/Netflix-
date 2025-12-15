@@ -612,7 +612,7 @@ fun getGenreName(genreId: Int): String {
         "Romance",
         "Science Fiction",
         "Sports",
-        "Thriller / Suspense",
+        "Thriller",
         "War",
         "Western"
     )

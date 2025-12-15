@@ -74,7 +74,7 @@ fun MovieFormScreen(
         "Romance",
         "Science Fiction",
         "Sports",
-        "Thriller / Suspense",
+        "Thriller",
         "War",
         "Western"
     )
